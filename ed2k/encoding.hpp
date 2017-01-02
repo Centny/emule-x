@@ -58,9 +58,9 @@ protected:
   boost::asio::streambuf buf_;
 };
 
-  /*
-   the ed2k login frame.
-   */
+/*
+ the ed2k login frame.
+ */
 class Decoding {
 public:
   Decoding(boost::asio::streambuf &buf);
@@ -74,9 +74,9 @@ protected:
   boost::asio::streambuf &buf_;
 };
 
-  /*
-   the ed2k base decoding for int/string/tag
-   */
+/*
+ the ed2k base decoding for int/string/tag
+ */
 class Login {
 public:
   char hash[16];
@@ -98,7 +98,7 @@ public:
   int parse(boost::asio::streambuf &buf);
   void print(char *buf = 0);
 };
-  //
+//
 }
 }
 
