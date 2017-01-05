@@ -1,6 +1,10 @@
 {
     'targets': [
         {
+            "variables": {
+                "other_cflags%": "",
+                "other_lflags%": "",
+            },
             'target_name': 'emule_x',
             'type': 'shared_library',
             'include_dirs': [
