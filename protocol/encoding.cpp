@@ -181,7 +181,7 @@ Encoding &Login::encoder() {
     enc.put((uint32_t)4);
     enc.putv((uint8_t)0x1, name);
     enc.putv((uint8_t)0x11, version);
-    enc.putv((uint8_t)0x0F, (uint64_t)port);
+    enc.putv((uint8_t)0x0F, (uint32_t)port);
     enc.putv((uint8_t)0x20, flags);
     return enc;
 }

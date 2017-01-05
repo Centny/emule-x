@@ -73,38 +73,38 @@ BOOST_AUTO_TEST_CASE(TesEncoding) {
     enc.reset();
     enc.putv("a", (uint32_t)100);
     enc.print();
-    BOOST_CHECK_EQUAL(enc.size(), 10);
+    BOOST_CHECK_EQUAL(enc.size(), 8);
     BOOST_CHECK_EQUAL((*enc.encode())[0], INT_TAG);
     BOOST_CHECK_EQUAL((*enc.encode())[1], 1);
     BOOST_CHECK_EQUAL((*enc.encode())[3], 'a');
-    BOOST_CHECK_EQUAL((*enc.encode())[6], 100);
+    BOOST_CHECK_EQUAL((*enc.encode())[4], 100);
     //
     enc.reset();
     enc.putv(0x01, (uint32_t)100);
     enc.print();
-    BOOST_CHECK_EQUAL(enc.size(), 10);
+    BOOST_CHECK_EQUAL(enc.size(), 8);
     BOOST_CHECK_EQUAL((*enc.encode())[0], INT_TAG);
     BOOST_CHECK_EQUAL((*enc.encode())[1], 1);
     BOOST_CHECK_EQUAL((*enc.encode())[3], 0x01);
-    BOOST_CHECK_EQUAL((*enc.encode())[6], 100);
+    BOOST_CHECK_EQUAL((*enc.encode())[4], 100);
     //
     enc.reset();
     enc.putv("a", (uint64_t)100);
     enc.print();
-    BOOST_CHECK_EQUAL(enc.size(), 14);
+    BOOST_CHECK_EQUAL(enc.size(), 12);
     BOOST_CHECK_EQUAL((*enc.encode())[0], INT_TAG);
     BOOST_CHECK_EQUAL((*enc.encode())[1], 1);
     BOOST_CHECK_EQUAL((*enc.encode())[3], 'a');
-    BOOST_CHECK_EQUAL((*enc.encode())[6], 100);
+    BOOST_CHECK_EQUAL((*enc.encode())[4], 100);
     //
     enc.reset();
     enc.putv(0x01, (uint64_t)100);
     enc.print();
-    BOOST_CHECK_EQUAL(enc.size(), 14);
+    BOOST_CHECK_EQUAL(enc.size(), 12);
     BOOST_CHECK_EQUAL((*enc.encode())[0], INT_TAG);
     BOOST_CHECK_EQUAL((*enc.encode())[1], 1);
     BOOST_CHECK_EQUAL((*enc.encode())[3], 0x01);
-    BOOST_CHECK_EQUAL((*enc.encode())[6], 100);
+    BOOST_CHECK_EQUAL((*enc.encode())[4], 100);
     //
     printf("%s\n", "test encoding done...");
 }
