@@ -1,20 +1,22 @@
 #include "ed2k.hpp"
-// #include <boost/endian/arithmetic.hpp>
 
-// using namespace boost::endian;
-// typedef boost::shared_ptr<client> client_ptr;
+#include <boost/test/included/unit_test.hpp>
 
-// typedef endian_buffer<order::big, uint8_t, 1000, align::yes> xxx;
+using namespace boost;
+using namespace emulex::ed2k;
 
-// int main(int argc, char *argv[]) {
-//   xxx a = 100;
-//   printf("do client->\n");
-//   boost::asio::io_service io_service;
-//   tcp::endpoint endpoint(address::from_string("14.23.162.173"), 4122);
-//   client_ptr new_session(new client(io_service, endpoint));
-//   new_session->start();
-//   io_service.run();
-//   std::string ss;
-//   std::cin >> ss;
-//   return 0;
-// }
+BOOST_AUTO_TEST_SUITE(Ed2k)  // name of the test suite is stringtest
+
+BOOST_AUTO_TEST_CASE(TesEd2k) {
+    return;
+    asio::io_service ios;
+    ED2K ed2k(new ED2K_(ios));
+    boost::system::error_code err;
+    ed2k->connect("10.211.55.8", 4122, err);
+    printf("ec:%d \n", err.value());
+    BOOST_CHECK(err == 0);
+    ios.run();
+    printf("%s\n", "test ed2k done...");
+}
+
+BOOST_AUTO_TEST_SUITE_END()

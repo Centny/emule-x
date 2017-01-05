@@ -43,7 +43,10 @@ func (x *xx) Write(p []byte) (n int, err error) {
 	for _, b := range p {
 		buf += fmt.Sprintf("%2x ", b)
 	}
-	fmt.Printf("D:%v\n", buf)
+	fmt.Printf("%d->D:%v\n", len(p), buf)
+	if len(p) < 32 {
+		return
+	}
 	fmt.Printf("1:%v\n", p[0])
 	fmt.Printf("2:%v\n", binary.LittleEndian.Uint32(p[1:5]))
 	fmt.Printf("3:%v\n", p[5])
