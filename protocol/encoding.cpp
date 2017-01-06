@@ -24,6 +24,11 @@ Data Encoding::Encoding::encode() {
     return BuildData(boost::asio::buffer_cast<const char *>(buf_.data()), buf_.size());
 }
 
+Encoding &Encoding::put(Data &data) {
+    put(data->data, data->len);
+    return *this;
+}
+
 Encoding &Encoding::put(const char *val, size_t len) {
     buf_.sputn(val, len);
     return *this;
@@ -161,9 +166,9 @@ Login::Login() {
     flags = 0;
 }
 
-Login::Login(const char *hash, const char *name, uint32_t cid, uint16_t port, uint64_t version, uint64_t flags) {
-    memset(this->hash, 0, 16);
-    memcpy(this->hash, hash, 16);
+Login::Login(const char *hash, const char *name, uint32_t cid, uint16_t port, uint32_t version, uint32_t flags) {
+    memset(this->hash, 0, 22);
+    memcpy(this->hash, hash, 22);
     memset(this->name, 0, 256);
     strcpy(this->name, name);
     this->cid = cid;
@@ -172,21 +177,21 @@ Login::Login(const char *hash, const char *name, uint32_t cid, uint16_t port, ui
     this->flags = flags;
 }
 
-Encoding &Login::encoder() {
-    enc.reset();
-    enc.put(OP_LOGINREQUEST);
-    enc.put(hash, (size_t)16);
-    enc.put(cid);
-    enc.put(port);
-    enc.put((uint32_t)4);
-    enc.putv((uint8_t)0x1, name);
-    enc.putv((uint8_t)0x11, version);
-    enc.putv((uint8_t)0x0F, (uint32_t)port);
-    enc.putv((uint8_t)0x20, flags);
-    return enc;
+Data Login::encode() {
+    reset();
+    put(OP_LOGINREQUEST);
+    put(hash, (size_t)16);
+    put(cid);
+    put(port);
+    put((uint32_t)4);
+    putv((uint8_t)0x1, name);
+    putv((uint8_t)0x11, version);
+    //    putv((uint8_t)0x0F, (uint32_t)port);
+    putv((uint8_t)0x20, flags);
+    other = 0 << 17 | 50 << 10 | 0 << 7;
+    putv((uint8_t)0xfb, other);
+    return Encoding::encode();
 }
-
-Data Login::encode() { return encoder().encode(); }
 
 int Login::parse(Data &data) {
     Decoding dec(data);
@@ -224,7 +229,7 @@ int Login::parse(Data &data) {
             if (dec.get(nbuf, nlen, vbuf, vlen) != 0) {
                 return -1;
             }
-            switch (nbuf[0]) {
+            switch ((unsigned char)nbuf[0]) {
                 case 0x1:
                     memcpy(name, vbuf, vlen);
                     name[vlen] = 0;
@@ -234,7 +239,7 @@ int Login::parse(Data &data) {
             if (dec.get(nbuf, nlen, ival) != 0) {
                 return -1;
             }
-            switch (nbuf[0]) {
+            switch ((unsigned char)nbuf[0]) {
                 case 0x11:
                     version = ival;
                     break;
@@ -244,6 +249,9 @@ int Login::parse(Data &data) {
                 case 0x20:
                     flags = ival;
                     break;
+                case 0xfb:
+                    other = ival;
+                    break;
             }
         } else {
             continue;
@@ -251,26 +259,280 @@ int Login::parse(Data &data) {
     }
     return 0;
 }
-void Login::print(char *buf) {
-    char tbuf_[102400];
-    char *tbuf = buf;
-    if (tbuf == 0) {
-        tbuf = tbuf_;
-    }
+size_t Login::show(char *buf) {
+    char tbuf[512];
     size_t tlen = 0;
-    tlen += sprintf(tbuf + tlen, "%s", "<<Login>>\n Hash:");
-    for (size_t i = 0; i < 16; i++) {
-        tlen += sprintf(tbuf + tlen, "%2X ", (uint8_t)hash[i]);
-    }
     tlen += sprintf(tbuf + tlen, "\n CID:%d", cid);
     tlen += sprintf(tbuf + tlen, "\n Port:%d", port);
     tlen += sprintf(tbuf + tlen, "\n Name:%s", name);
-    tlen += sprintf(tbuf + tlen, "\n Version:0x%0llX", version);
-    tlen += sprintf(tbuf + tlen, "\n Flags:0x%0llX", flags);
+    tlen += sprintf(tbuf + tlen, "\n Version:%0x", version);
+    tlen += sprintf(tbuf + tlen, "\n Flags:%0x", flags);
+    tlen += sprintf(tbuf + tlen, "\n Other:%0x", other);
     tbuf[tlen] = 0;
     if (buf == 0) {
         printf("%s\n", tbuf);
     }
+    return tlen;
 }
+SrvMessage::SrvMessage() {}
+SrvMessage::SrvMessage(const char *msg, size_t len) { this->msg = BuildData(msg, len); }
+
+Data SrvMessage::encode() {
+    reset();
+    put(OP_SERVERMESSAGE);
+    put((uint16_t)msg->len);
+    put(msg);
+    return Encoding::encode();
+}
+int SrvMessage::parse(Data &data) {
+    Decoding dec(data);
+    uint16_t len;
+    uint8_t magic;
+    if (dec.get<uint8_t, 1>(magic) != 0) {
+        return -1;
+    }
+    if (magic != OP_SERVERMESSAGE) {
+        return 1;
+    }
+    if (dec.get<uint16_t, 2>(len) != 0) {
+        return -1;
+    }
+    if (data->len < len + 2) {
+        return -1;
+    }
+    msg = data->sub(3, len);
+    return 0;
+}
+const char *SrvMessage::c_str() { return std::string(msg->data, msg->len).c_str(); }
+
+IDCHANGE::IDCHANGE(uint32_t id, uint32_t bitmap) {
+    this->id = id;
+    this->bitmap = bitmap;
+}
+
+Data IDCHANGE::encode() {
+    reset();
+    put(OP_IDCHANGE);
+    put(id);
+    put(bitmap);
+    return Encoding::encode();
+}
+
+int IDCHANGE::parse(Data &data) {
+    Decoding dec(data);
+    uint8_t magic;
+    if (dec.get<uint8_t, 1>(magic) != 0) {
+        return -1;
+    }
+    if (magic != OP_IDCHANGE) {
+        return 1;
+    }
+    if (dec.get<uint32_t, 4>(id) != 0) {
+        return -1;
+    }
+    return dec.get<uint32_t, 4>(bitmap);
+}
+
+SrvStatus::SrvStatus(uint32_t userc, uint32_t filec) {
+    this->userc = userc;
+    this->filec = filec;
+}
+
+Data SrvStatus::encode() {
+    reset();
+    put(OP_SERVERSTATUS);
+    put(userc);
+    put(filec);
+    return Encoding::encode();
+}
+
+int SrvStatus::parse(Data &data) {
+    Decoding dec(data);
+    uint8_t magic;
+    if (dec.get<uint8_t, 1>(magic) != 0) {
+        return -1;
+    }
+    if (magic != OP_SERVERSTATUS) {
+        return 1;
+    }
+    if (dec.get<uint32_t, 4>(userc) != 0) {
+        return -1;
+    }
+    return dec.get<uint32_t, 4>(filec);
+}
+
+OfferFile::OfferFile() {}
+
+Data OfferFile::encode() { return Encoding::encode(); }
+
+int OfferFile::parse(Data &data) { return 0; }
+
+Data ListServer() {
+    char opcode = (char)OP_LIST_SERVER;
+    return BuildData(&opcode, 1);
+}
+
+ServerList::ServerList() {}
+
+Data ServerList::encode() {
+    reset();
+    put(OP_SERVERLIST);
+    BOOST_FOREACH (Address &srv, srvs) {
+        put(srv.first);
+        put(srv.second);
+    }
+    return Encoding::encode();
+}
+
+int ServerList::parse(Data &data) {
+    Decoding dec(data);
+    uint8_t magic;
+    if (dec.get<uint8_t, 1>(magic) != 0) {
+        return -1;
+    }
+    if (magic != OP_SERVERLIST) {
+        return 1;
+    }
+    uint8_t count;
+    if (dec.get<uint8_t, 1>(count) != 0) {
+        return -1;
+    }
+    uint32_t ip;
+    uint16_t port;
+    for (uint8_t i = 0; i < count; i++) {
+        if (dec.get<uint32_t, 4>(ip) != 0) {
+            return -1;
+        }
+        if (dec.get<uint16_t, 2>(port) != 0) {
+            return -1;
+        }
+        srvs.push_back(Address(ip, port));
+    }
+    return 0;
+}
+
+ServerIndent::ServerIndent() {
+    memset(this->hash, 0, 16);
+    this->ip = 0;
+    this->port = 0;
+    memset(this->name, 0, 128);
+    memset(this->desc, 0, 256);
+}
+
+ServerIndent::ServerIndent(const char *hash, uint32_t ip, uint32_t port, const char *name, const char *desc) {
+    memcpy(this->hash, hash, 16);
+    this->ip = ip;
+    this->port = port;
+    strncpy(this->name, name, 128);
+    strncpy(this->desc, desc, 256);
+}
+
+Data ServerIndent::encode() {
+    reset();
+    put(OP_SERVERIDENT);
+    put(hash, 16);
+    put(ip);
+    put(port);
+    uint32_t tc = 0;
+    if (strlen(name)) {
+        tc++;
+    }
+    if (strlen(desc)) {
+        tc++;
+    }
+    if (tc) {
+        put(tc);
+        if (strlen(name)) {
+            putv(uint8_t(0x1), name);
+        }
+        if (strlen(desc)) {
+            putv(uint8_t(0x1), desc);
+        }
+    }
+    return Encoding::encode();
+}
+
+int ServerIndent::parse(Data &data) {
+    Decoding dec(data);
+    int code;
+    uint8_t magic;
+    if (dec.get<uint8_t, 1>(magic) != 0) {
+        return -1;
+    }
+    if (magic != OP_SERVERIDENT) {
+        return 1;
+    }
+    if (dec.get(hash, 16) != 0) {
+        return -1;
+    }
+    if (dec.get<uint32_t, 4>(ip) != 0) {
+        return -1;
+    }
+    if (dec.get<uint16_t, 2>(port) != 0) {
+        return -1;
+    }
+    uint32_t tc = 0;
+    if (dec.get<uint32_t, 4>(tc) != 0) {
+        return -1;
+    }
+    char nbuf[256];
+    uint16_t nlen;
+    char vbuf[256];
+    uint16_t vlen;
+    uint32_t ival;
+    for (uint32_t i = 0; i < tc; i++) {
+        if (dec.get<uint8_t, 1>(magic) != 0) {
+            return -1;
+        }
+        if (magic != STR_TAG) {
+            return -1;
+        }
+        if (dec.get(nbuf, nlen, vbuf, vlen) != 0) {
+            return -1;
+        }
+        switch ((unsigned char)nbuf[0]) {
+            case 0x1:
+                memcpy(name, vbuf, vlen);
+                name[vlen] = 0;
+                break;
+            case 0xB:
+                memcpy(desc, vbuf, vlen);
+                desc[vlen] = 0;
+                break;
+        }
+    }
+    return 0;
+}
+
+SearchArgs::SearchArgs() {}
+
+SearchArgs::SearchArgs(const char *search) { this->search = BuildData(search, strlen(search)); }
+
+Data SearchArgs::encode() {
+    reset();
+    put(OP_SEARCHREQUEST);
+    //        put((uint16_t)0);
+    //        put(search->len);
+    put((uint8_t)0x1);
+    put((uint16_t)search->len);
+    put(search->data, search->len);
+    return Encoding::encode();
+}
+
+int SearchArgs::parse(Data &data) {
+    Decoding dec(data);
+    int code;
+    uint8_t magic;
+    if (dec.get<uint8_t, 1>(magic) != 0) {
+        return -1;
+    }
+    if (magic != OP_SEARCHREQUEST) {
+        return 1;
+    }
+    search = data->sub(1, data->len - 1);
+    return 0;
+}
+
+//////////end encoding//////////
 }
 }
