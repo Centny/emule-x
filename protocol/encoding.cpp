@@ -20,6 +20,13 @@ ModH BuildMod() {
     m->big = false;
     return mod;
 }
+std::string hash_tos(const char *hash) {
+    char buf[33];
+    for (int i = 0; i < 16; i++) {
+        sprintf(buf + i * 2, "%02X", hash[i]);
+    }
+    return std::string(buf);
+}
 
 Encoding::Encoding() {}
 
@@ -163,6 +170,7 @@ Data Decoding::getstring(std::size_t len) {
         return getdata(get<uint16_t, 2>(), true);
     }
 }
+
 Data Decoding::getdata(size_t len, bool iss) {
     Data val = BuildData(len, iss);
     get(val->data, val->len);
@@ -256,6 +264,7 @@ void Login::parse(Data &data) {
         }
     }
 }
+
 size_t Login::show(char *buf) {
     char tbuf[512];
     size_t tlen = 0;
@@ -271,7 +280,9 @@ size_t Login::show(char *buf) {
     }
     return tlen;
 }
+
 SrvMessage::SrvMessage() {}
+
 SrvMessage::SrvMessage(const char *msg, size_t len) { this->msg = BuildData(msg, len); }
 
 Data SrvMessage::encode() {
@@ -281,19 +292,20 @@ Data SrvMessage::encode() {
     put(msg);
     return Encoding::encode();
 }
+
 void SrvMessage::parse(Data &data) {
     Decoding dec(data);
-    uint16_t len;
     uint8_t magic = dec.get<uint8_t, 1>();
     if (magic != OP_SERVERMESSAGE) {
         throw Fail("SrvMessage parse fail with invalid magic, %x expected, but %x", OP_SERVERMESSAGE, magic);
     }
-    len = dec.get<uint16_t, 2>();
+    uint16_t len = dec.get<uint16_t, 2>();
     if (data->len < len + 2) {
         throw Fail("SrvMessage parse fail with need more data, %x expected, but %x", len, data->len - 2);
     }
-    msg = data->sub(3, len);
+    msg = data->sub(3, len, true);
 }
+
 const char *SrvMessage::c_str() { return std::string(msg->data, msg->len).c_str(); }
 
 IDCHANGE::IDCHANGE(uint32_t id, uint32_t bitmap) {
@@ -350,7 +362,6 @@ void FTagParser::parse(Decoding &dec) {
         uname = dec.get<uint8_t, 1>();
     } else {
         length = dec.get<uint16_t, 2>();
-        printf("->%ld\n", length);
         if (length == 1) {
             uname = dec.get<uint8_t, 1>();
         } else {
@@ -429,7 +440,7 @@ void FileEntry_::parse(Decoding &dec, uint8_t magic) {
             } else if (tag.sval->cmp("codec")) {
                 codec = tag.u32v;
             } else {
-                V_LOG_W("FileEntry found unknow tag(%02X) name(%s)", tag.type,tag.sname->data);
+                V_LOG_W("FileEntry found unknow tag(%02X) name(%s)", tag.type, tag.sname->data);
             }
         } else {
             V_LOG_W("FileEntry found unknow tag:%ld", tag.type);
@@ -437,23 +448,9 @@ void FileEntry_::parse(Decoding &dec, uint8_t magic) {
     }
 }
 
-void FileEntry_::print() {
-    if (type.get()) {
-        printf("%s,%llu,%s\n", name->data, size, type->data);
-    } else if (format.get()) {
-        printf("%s,%llu,%s\n", name->data, size, format->data);
-    } else {
-        printf("%s,%llu,%u,%u\n", name->data, size, sources, completed);
-    }
-}
+void FileEntry_::print() { printf("%s,%s,%llu,%u,%u\n", hash_tos(hash).c_str(), name->data, size, sources, completed); }
 
-std::string FileEntry_::shash() {
-    char buf[33];
-    for (int i = 0; i < 16; i++) {
-        sprintf(buf + i * 2, "%02X", hash[i]);
-    }
-    return std::string(buf);
-}
+std::string FileEntry_::shash() { return hash_tos(hash); }
 
 FileEntry FileEntry_::share() { return shared_from_this(); }
 
@@ -477,6 +474,7 @@ void FileList::parse(Data &data, uint8_t magic) {
     for (uint32_t i = 0; i < rc; i++) {
         FileEntry fe = BuildFileEntry();
         fe->parse(dec, magic);
+        fe->print();
         this->fs[fe->shash()] = fe->share();
     }
 }
@@ -604,7 +602,6 @@ Data SearchArgs::encode() {
 
 void SearchArgs::parse(Data &data) {
     Decoding dec(data);
-    int code;
     uint8_t magic = dec.get<uint8_t, 1>();
     if (magic != OP_SEARCHREQUEST) {
         throw Fail("ServerIndent parse fail with invalid magic, %x expected, but %x", OP_SEARCHREQUEST, magic);
@@ -613,6 +610,73 @@ void SearchArgs::parse(Data &data) {
     return 0;
 }
 
+GetSource::GetSource() {}
+
+GetSource::GetSource(const char *hash, uint64_t size) {
+    memcpy(this->hash, hash, 16);
+    this->size = size;
+}
+
+Data GetSource::encode() {
+    reset();
+    put((uint8_t)OP_GETSOURCES_OBFU);
+    put(hash, 16);
+    if (size > (uint64_t)OLD_MAX_EMULE_FILE_SIZE) {
+        put((uint32_t)0);
+        put((uint64_t)size);
+    } else {
+        put((uint32_t)size);
+    }
+    return Encoding::encode();
+}
+
+void GetSource::parse(Data &data) {
+    Decoding dec(data);
+    uint8_t magic = dec.get<uint8_t, 1>();
+    if (magic != OP_GETSOURCES_OBFU) {
+        throw Fail("GetSource parse fail with invalid magic, %x expected, but %x", OP_GETSOURCES_OBFU, magic);
+    }
+    dec.get(hash, 16);
+    size = dec.get<uint32_t, 4>();
+    if (size == 0) {
+        size = dec.get<uint64_t, 8>();
+    }
+}
+
+FoundSource::FoundSource() {}
+
+Data FoundSource::encode() {
+    reset();
+    put((uint8_t)OP_FOUNDSOURCES_OBFU);
+    //        put((uint16_t)0);
+    //        put(search->len);
+    put(hash,16);
+    put((uint8_t)srvs.size());
+    BOOST_FOREACH (Address &srv, srvs) {
+        put(srv.first);
+        put(srv.second);
+        put((uint8_t)0x01);
+    }
+    return Encoding::encode();
+}
+
+void FoundSource::parse(Data &data) {
+    Decoding dec(data);
+    uint8_t magic = dec.get<uint8_t, 1>();
+    if (magic != OP_FOUNDSOURCES_OBFU) {
+        throw Fail("FoundSource parse fail with invalid magic, %x expected, but %x", OP_FOUNDSOURCES_OBFU, magic);
+    }
+    dec.get(hash, 16);
+    uint8_t count = dec.get<uint8_t, 1>();
+    uint32_t ip;
+    uint16_t port;
+    for (uint8_t i = 0; i < count; i++) {
+        ip = dec.get<uint32_t, 4>();
+        port = dec.get<uint16_t, 2>();
+        srvs.push_back(Address(ip, port));
+        dec.get<uint8_t, 1>();
+    }
+}
 //////////end encoding//////////
 }
 }

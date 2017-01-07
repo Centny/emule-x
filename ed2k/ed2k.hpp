@@ -35,6 +35,7 @@ class ED2K_ : public CmdH_, public ConH_, public boost::enable_shared_from_this<
     ServerList srvs;
     ServerIndent sid;
     FileList fs;
+    FoundSource found;
     //
     boost::system::error_code ecode;
 
@@ -54,6 +55,7 @@ class ED2K_ : public CmdH_, public ConH_, public boost::enable_shared_from_this<
     virtual void login(boost::system::error_code &ec);
     virtual void listServer(boost::system::error_code &ec);
     virtual void search(const char *key, boost::system::error_code &ec);
+    virtual void listSource(const char *hash, uint64_t size, boost::system::error_code &ec);
 };
 
 //////////end ed2k//////////

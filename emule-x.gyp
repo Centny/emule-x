@@ -20,6 +20,7 @@
                 'ed2k/ed2k.hpp',
                 'protocol/encoding.cpp',
                 'protocol/encoding.hpp',
+                'protocol/opcodes.h',
             ],
             'conditions': [
                 ['OS=="mac"', {

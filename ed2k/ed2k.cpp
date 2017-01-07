@@ -23,8 +23,13 @@ void ED2K_::connect(const char *addr, unsigned short port, boost::system::error_
 void ED2K_::OnSrvLogined() {
     //
     listServer(ecode);
-//    sleep(2);
-    search("a", ecode);
+    //    sleep(2);
+    //    search("av", ecode);
+    char hash[] = {
+        0x4b, 0x7a, 0x86, 0x0, 0x28, 0x14, 0x76, 0x60, 0x2e, 0x9c, 0x71, 0x11, 0xb2, 0x28, 0x40, 0xfd,  //
+    };
+    size_t size = 55064535;
+    listSource(hash, size, ecode);
 }
 
 bool ED2K_::OnConn(TCP s, const boost::system::error_code &ec) {
@@ -73,6 +78,11 @@ int ED2K_::OnCmd(Cmd c) {
             fs.parse(c->data, c->header->data[0]);
             V_LOG_I("ED2K parse search result with %d found", fs.fs.size());
             return code;
+        case OP_FOUNDSOURCES_OBFU:
+            found.parse(c->data);
+            V_LOG_I("ED2K parse found source for hash(%s) with %d server", hash_tos(found.hash).c_str(),
+                    found.srvs.size());
+            return code;
     }
     c->data->print(cbuf);
     V_LOG_W("ED2K receive unknow message:%s", cbuf);
@@ -105,12 +115,22 @@ void ED2K_::listServer(boost::system::error_code &ec) {
 
 void ED2K_::search(const char *key, boost::system::error_code &ec) {
     SearchArgs args(key);
-//    args.print();
+    //    args.print();
     send(args, ec);
     if (ec) {
         V_LOG_W("ED2K send search by key(%s) fail with code(%d)", key, ec.value());
     } else {
         V_LOG_D("ED2K send search by key(%s) success", key);
+    }
+}
+
+void ED2K_::listSource(const char *hash, uint64_t size, boost::system::error_code &ec) {
+    GetSource args(hash, size);
+    send(args, ec);
+    if (ec) {
+        V_LOG_W("ED2K send get source by hash(%s) fail with code(%d)", hash_tos(hash).c_str(), ec.value());
+    } else {
+        V_LOG_D("ED2K send get source by hasn(%s) success", hash_tos(hash).c_str());
     }
 }
 

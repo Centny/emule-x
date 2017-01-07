@@ -43,6 +43,7 @@ const uint8_t INT_TAG = 0x3;
 const uint8_t FLOAT_TAG = 0x4;
 
 ModH BuildMod();
+std::string hash_tos(const char *hash);
 /*
  the ed2k base encoding for int/string/tag
  */
@@ -281,7 +282,28 @@ class SearchArgs : public Encoding {
     virtual void parse(Data &data);
 };
 
-class SearchResult : public Encoding {};
+class GetSource : public Encoding {
+   public:
+    char hash[16];
+    uint64_t size;
+
+   public:
+    GetSource();
+    GetSource(const char *hash, uint64_t size);
+    virtual Data encode();
+    virtual void parse(Data &data);
+};
+
+class FoundSource : public Encoding {
+   public:
+    char hash[16];
+    std::list<Address> srvs;
+
+   public:
+    FoundSource();
+    virtual Data encode();
+    virtual void parse(Data &data);
+};
 //////////end encoding//////////
 }
 }

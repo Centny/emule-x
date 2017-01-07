@@ -20,8 +20,8 @@ int edk_console(int argc, char **argv) {
     asio::io_service ios;
     ED2K ed2k(new ED2K_(ios));
     boost::system::error_code err;
-    ed2k->connect("10.211.55.8", 4122, err);
-//    ed2k->connect("127.0.0.1", 20000, err);
+    //    ed2k->connect("10.211.55.8", 4122, err);
+    ed2k->connect("127.0.0.1", 20000, err);
     printf("ec:%d \n", err.value());
     ios.run();
     printf("%s\n", "test ed2k console done...");
