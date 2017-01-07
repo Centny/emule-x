@@ -23,17 +23,20 @@ namespace emulex {
 namespace protocol {
 using namespace boost;
 using namespace butils::netw;
-const uint8_t PROTOCOL = 0xE3;
 //
-const uint8_t OP_LOGINREQUEST = 0x01;
-const uint8_t OP_IDCHANGE = 0x40;
-const uint8_t OP_SERVERMESSAGE = 0x38;
-const uint8_t OP_SERVERSTATUS = 0x34;
-const uint8_t OP_OFFERFILES = 0x15;
-const uint8_t OP_LIST_SERVER = 0x14;
-const uint8_t OP_SERVERLIST = 0x32;
-const uint8_t OP_SERVERIDENT = 0x41;
-const uint8_t OP_SEARCHREQUEST = 0x16;
+#include "opcodes.h"
+//    const uint8_t PROTOCOL_V0 = 0xE3;
+// const uint8_t PROTOCOL_V1 = 0xD4;
+//
+// const uint8_t OP_LOGINREQUEST = 0x01;
+// const uint8_t OP_IDCHANGE = 0x40;
+// const uint8_t OP_SERVERMESSAGE = 0x38;
+// const uint8_t OP_SERVERSTATUS = 0x34;
+// const uint8_t OP_OFFERFILES = 0x15;
+// const uint8_t OP_LIST_SERVER = 0x14;
+// const uint8_t OP_SERVERLIST = 0x32;
+// const uint8_t OP_SERVERIDENT = 0x41;
+// const uint8_t OP_SEARCHREQUEST = 0x16;
 
 const uint8_t STR_TAG = 0x2;
 const uint8_t INT_TAG = 0x3;
@@ -79,18 +82,22 @@ class Decoding {
     Decoding(Data &data);
     virtual ~Decoding();
     template <typename T, std::size_t n_bits>
-    int get(T &val) {
+    T get() {
         if (data->len - offset < n_bits) {
-            return -1;
+            throw Fail("decode fail with not enough data, expect %ld, but %ld", n_bits, data->len - offset);
         }
-        val = boost::endian::detail::load_little_endian<T, n_bits>(data->data + offset);
+        T val = boost::endian::detail::load_little_endian<T, n_bits>(data->data + offset);
         offset += n_bits;
-        return 0;
+        return val;
     }
-    int get(char *name, size_t len);
-    int get(char *name, uint16_t &nlen);
-    int get(char *name, uint16_t &nlen, char *value, uint16_t &vlen);
-    int get(char *name, uint16_t &nlen, uint32_t &vlen);
+    void get(char *name, size_t len);
+    void get(char *name, uint16_t &nlen);
+    void get(char *name, uint16_t &nlen, char *value, uint16_t &vlen);
+    void get(char *name, uint16_t &nlen, uint32_t &vlen);
+    Data getstring(size_t len = 0);
+    Data getdata(size_t len, bool iss = false);
+
+    void inflate();
 
    public:
     Data data;
@@ -117,7 +124,7 @@ class Login : public Encoding {
     Login(const char *hash, const char *name, uint32_t cid = 0, uint16_t port = 4662, uint32_t version = 0x3C,
           uint32_t flags = 0x319);
     virtual Data encode();
-    virtual int parse(Data &data);
+    virtual void parse(Data &data);
     virtual size_t show(char *buf = 0);
 };
 /*
@@ -131,7 +138,7 @@ class SrvMessage : public Encoding {
     SrvMessage();
     SrvMessage(const char *msg, size_t len = 0);
     virtual Data encode();
-    virtual int parse(Data &data);
+    virtual void parse(Data &data);
     virtual const char *c_str();
 };
 /*
@@ -145,7 +152,7 @@ class IDCHANGE : public Encoding {
    public:
     IDCHANGE(uint32_t id = 0, uint32_t bitmap = 0x00000001);
     virtual Data encode();
-    virtual int parse(Data &data);
+    virtual void parse(Data &data);
 };
 /*
  the ed2k server status
@@ -158,39 +165,69 @@ class SrvStatus : public Encoding {
    public:
     SrvStatus(uint32_t userc = 0, uint32_t filec = 0);
     virtual Data encode();
-    virtual int parse(Data &data);
+    virtual void parse(Data &data);
+};
+class FTagParser {
+   public:
+    uint8_t type;
+    uint8_t uname;
+    Data sname;
+    //
+    uint8_t u8v;
+    uint16_t u16v;
+    uint32_t u32v;
+    uint64_t u64v;
+    bool bval;
+    Data sval;
+
+   public:
+    virtual void parse(Decoding &dec);
 };
 /*
  the ed2k file entry to upload
  */
-class FileEntry {
+class FileEntry_;
+typedef boost::shared_ptr<FileEntry_> FileEntry;
+
+class FileEntry_ : public boost::enable_shared_from_this<FileEntry_> {
    public:
     char hash[16];
-    uint32_t cid;
-    uint16_t port;
-    Data name;         // 0x1
-    uint64_t size;     // 0x2
-    char type[64];     // 0x3
-    char format[64];   // 0x4
-    Data artist;       // artist
-    Data album;        // album;
-    Data title;        // title
-    uint32_t length;   // length
-    uint32_t bitrate;  // bitrate
-    char codec[64];    // codec
+    uint32_t cid = 0;
+    uint16_t port = 0;
+    Data name;              // 0x1
+    uint64_t size = 0;      // 0x2
+    Data type;              // 0x3
+    Data format;            // 0x4
+    uint8_t sources = 0;    // 0x15
+    uint8_t completed = 0;  // 0x15
+    Data artist;            // artist
+    Data album;             // album;
+    Data title;             // title
+    uint32_t length = 0;    // length
+    uint32_t bitrate = 0;   // bitrate
+    uint32_t codec = 0;     // codec
+    uint32_t gapstart = 0;  // 0x09
+   public:
+    virtual ~FileEntry_();
+    virtual void parse(Decoding &dec, uint8_t magic);
+    std::string shash();
+    virtual FileEntry share();
+    virtual void print();
 };
+FileEntry BuildFileEntry();
 /*
  the ed2k file list to upload
  */
-class OfferFile : public Encoding {
+class FileList : public Encoding {
    public:
     //    uint32_t filec;
-    std::list<FileEntry> files;
+    std::map<std::string, FileEntry> fs;
 
    public:
-    OfferFile();
+    FileList();
+    //    virtual ~FileList();
     virtual Data encode();
-    virtual int parse(Data &data);
+    virtual void parse(Data &data, uint8_t magic);
 };
 /*
  the ed2k list server frame
@@ -211,7 +248,7 @@ class ServerList : public Encoding {
    public:
     ServerList();
     virtual Data encode();
-    virtual int parse(Data &data);
+    virtual void parse(Data &data);
 };
 
 class ServerIndent : public Encoding {
@@ -225,7 +262,7 @@ class ServerIndent : public Encoding {
     ServerIndent();
     ServerIndent(const char *hash, uint32_t ip, uint32_t port, const char *name, const char *desc);
     virtual Data encode();
-    virtual int parse(Data &data);
+    virtual void parse(Data &data);
 };
 
 class SearchArgs : public Encoding {
@@ -241,7 +278,7 @@ class SearchArgs : public Encoding {
     SearchArgs();
     SearchArgs(const char *search);
     virtual Data encode();
-    virtual int parse(Data &data);
+    virtual void parse(Data &data);
 };
 
 class SearchResult : public Encoding {};

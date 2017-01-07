@@ -37,6 +37,7 @@
                             "-lboost_filesystem",
                             "-lboost_thread",
                             "-lboost_utils",
+                            "-lz",
                             "-Wl,-rpath,.",
                             "<(other_cflags)",
                         ],
@@ -73,6 +74,7 @@
                             "-lboost_unit_test_framework",
                             "-lboost_utils",
                             "-lemule_x",
+                            "-lz",
                             "-Wl,-rpath,$(PROJECT_DIR)/../boost-utils/build/Default",
                             "-Wl,-rpath,."
                         ],
@@ -108,7 +110,9 @@
                             "-lboost_unit_test_framework",
                             "-lboost_utils",
                             "-lemule_x",
-                            "-Wl,-rpath,$(PROJECT_DIR)/../boost-utils/build/Default"
+                            "-lz",
+                            "-Wl,-rpath,$(PROJECT_DIR)/../boost-utils/build/Default",
+                            "-Wl,-rpath,."
                         ],
                     },
                 }],
