@@ -402,7 +402,7 @@ void FileEntry_::parse(Decoding &dec, uint8_t magic) {
                 name = tag.sval->share();
             } else if (tag.uname == FT_FILESIZE) {
                 size = tag.u64v;
-            } else if (tag.uname == FT_FILETYPE && tag.sval.get()) {
+            } else if (tag.uname == FT_FILETYPE) {
                 type = tag.sval->share();
             } else if (tag.uname == FT_FILEFORMAT && tag.sval.get()) {
                 format = tag.sval->share();
@@ -429,7 +429,7 @@ void FileEntry_::parse(Decoding &dec, uint8_t magic) {
             } else if (tag.sval->cmp("codec")) {
                 codec = tag.u32v;
             } else {
-                V_LOG_W("FileEntry found unknow tag:%02X", tag.type);
+                V_LOG_W("FileEntry found unknow tag(%02X) name(%s)", tag.type,tag.sname->data);
             }
         } else {
             V_LOG_W("FileEntry found unknow tag:%ld", tag.type);
@@ -477,7 +477,6 @@ void FileList::parse(Data &data, uint8_t magic) {
     for (uint32_t i = 0; i < rc; i++) {
         FileEntry fe = BuildFileEntry();
         fe->parse(dec, magic);
-        fe->print();
         this->fs[fe->shash()] = fe->share();
     }
 }

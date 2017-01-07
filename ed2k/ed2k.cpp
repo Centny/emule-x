@@ -22,9 +22,9 @@ void ED2K_::connect(const char *addr, unsigned short port, boost::system::error_
 
 void ED2K_::OnSrvLogined() {
     //
-    //    listServer(ecode);
-    sleep(2);
-    search("atrc", ecode);
+    listServer(ecode);
+//    sleep(2);
+    search("a", ecode);
 }
 
 bool ED2K_::OnConn(TCP s, const boost::system::error_code &ec) {
@@ -70,7 +70,6 @@ int ED2K_::OnCmd(Cmd c) {
             V_LOG_I("ED2K parse server identification with server name(%s,%s)", sid.name, sid.desc);
             return code;
         case OP_SEARCHRESULT:
-            c->data->print();
             fs.parse(c->data, c->header->data[0]);
             V_LOG_I("ED2K parse search result with %d found", fs.fs.size());
             return code;
@@ -106,7 +105,7 @@ void ED2K_::listServer(boost::system::error_code &ec) {
 
 void ED2K_::search(const char *key, boost::system::error_code &ec) {
     SearchArgs args(key);
-    args.print();
+//    args.print();
     send(args, ec);
     if (ec) {
         V_LOG_W("ED2K send search by key(%s) fail with code(%d)", key, ec.value());
