@@ -34,6 +34,7 @@ class ED2K_ : public CmdH_, public ConH_, public boost::enable_shared_from_this<
     SrvStatus status;
     ServerList srvs;
     ServerIndent sid;
+    FileList fs;
     //
     boost::system::error_code ecode;
 

@@ -21,6 +21,6 @@ fi
 
 if [ "$1" = "run" ];then
     cd ./build/Default/
-    ./boost.utils.test.console $2
+    ./emule_x.test.console
     cd ../../
 fi

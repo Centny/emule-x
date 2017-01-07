@@ -22,8 +22,9 @@ void ED2K_::connect(const char *addr, unsigned short port, boost::system::error_
 
 void ED2K_::OnSrvLogined() {
     //
-    listServer(ecode);
-    search("a", ecode);
+    //    listServer(ecode);
+    sleep(2);
+    search("atrc", ecode);
 }
 
 bool ED2K_::OnConn(TCP s, const boost::system::error_code &ec) {
@@ -44,55 +45,34 @@ bool ED2K_::OnConn(TCP s, const boost::system::error_code &ec) {
 void ED2K_::OnClose(TCP s, const boost::system::error_code &ec) { printf("closed:%d\n", ec.value()); }
 
 int ED2K_::OnCmd(Cmd c) {
-    int code;
+    int code = 0;
     switch (c->charAt(0)) {
         case OP_SERVERMESSAGE:
-            code = smsg.parse(c->data);
-            if (code) {
-                c->data->print(cbuf);
-                V_LOG_W("ED2K parse server message fail with data->%s", cbuf);
-            } else {
-                V_LOG_I("ED2K receive server message:%s", smsg.msg->data);
-            }
+            smsg.parse(c->data);
+            V_LOG_I("ED2K receive server message:%s", smsg.msg->data);
             return code;
         case OP_IDCHANGE:
-            code = id.parse(c->data);
-            if (code) {
-                c->data->print(cbuf);
-                V_LOG_W("ED2K parse id change message fail with data->%s", cbuf);
-                logined = false;
-            } else {
-                V_LOG_I("ED2K change id to %ld", id.id);
-                logined = true;
-            }
+            id.parse(c->data);
+            V_LOG_I("ED2K change id to %ld", id.id);
+            logined = true;
             OnSrvLogined();
             return code;
         case OP_SERVERSTATUS:
-            code = status.parse(c->data);
-            if (code) {
-                c->data->print(cbuf);
-                V_LOG_W("ED2K parse server status fail with data->%s", cbuf);
-            } else {
-                V_LOG_I("ED2K change server status to user(%ld),file(%ld)", status.userc, status.filec);
-            }
+            status.parse(c->data);
+            V_LOG_I("ED2K change server status to user(%ld),file(%ld)", status.userc, status.filec);
             return code;
         case OP_SERVERLIST:
-            code = srvs.parse(c->data);
-            if (code) {
-                c->data->print(cbuf);
-                V_LOG_W("ED2K parse server list fail with data->%s", cbuf);
-            } else {
-                V_LOG_I("ED2K parse server list with %ld server found", srvs.srvs.size());
-            }
+            srvs.parse(c->data);
+            V_LOG_I("ED2K parse server list with %ld server found", srvs.srvs.size());
             return code;
         case OP_SERVERIDENT:
-            code = sid.parse(c->data);
-            if (code) {
-                c->data->print(cbuf);
-                V_LOG_W("ED2K parse server identification fail with data->%s", cbuf);
-            } else {
-                V_LOG_I("ED2K parse server identification with server name(%s,%s)", sid.name, sid.desc);
-            }
+            sid.parse(c->data);
+            V_LOG_I("ED2K parse server identification with server name(%s,%s)", sid.name, sid.desc);
+            return code;
+        case OP_SEARCHRESULT:
+            c->data->print();
+            fs.parse(c->data, c->header->data[0]);
+            V_LOG_I("ED2K parse search result with %d found", fs.fs.size());
             return code;
     }
     c->data->print(cbuf);
@@ -111,7 +91,7 @@ void ED2K_::login(boost::system::error_code &ec) {
     if (ec) {
         V_LOG_W("ED2K send login by name(%s),port(%d) fail with code(%d)", name, port, ec.value());
     } else {
-        V_LOG_W("ED2K send login by name(%s),port(%d) success", name, port);
+        V_LOG_D("ED2K send login by name(%s),port(%d) success", name, port);
     }
 }
 
@@ -120,7 +100,7 @@ void ED2K_::listServer(boost::system::error_code &ec) {
     if (ec) {
         V_LOG_W("ED2K send list server fail with code(%d)", ec.value());
     } else {
-        V_LOG_W("ED2K send list server %s", "success");
+        V_LOG_D("ED2K send list server %s", "success");
     }
 }
 
@@ -131,7 +111,7 @@ void ED2K_::search(const char *key, boost::system::error_code &ec) {
     if (ec) {
         V_LOG_W("ED2K send search by key(%s) fail with code(%d)", key, ec.value());
     } else {
-        V_LOG_W("ED2K send search by key(%s) success", key);
+        V_LOG_D("ED2K send search by key(%s) success", key);
     }
 }
 

@@ -7,11 +7,20 @@
 //
 
 #include "encoding.hpp"
-
+#include <zlib.h>
 namespace emulex {
 namespace protocol {
 using namespace boost::endian::detail;
-ModH BuildMod() { return ModH(new M1L4(PROTOCOL, false)); }
+
+ModH BuildMod() {
+    auto mod = ModH(new M1L4());
+    M1L4 *m = (M1L4 *)mod.get();
+    m->magic[0] = OP_EDONKEYPROT;
+    m->magic[1] = OP_PACKEDPROT;
+    m->big = false;
+    return mod;
+}
+
 Encoding::Encoding() {}
 
 void Encoding::reset() { buf_.consume(buf_.size()); }
@@ -127,33 +136,42 @@ Decoding::Decoding(Data &data) {
     this->offset = 0;
 }
 Decoding::~Decoding() {}
-int Decoding::get(char *buf, size_t len) {
+void Decoding::get(char *buf, size_t len) {
     if (data->len < offset + len) {
-        return -1;
+        throw Fail("decode fail with not enough data, expect %ld, but %ld", len, data->len - offset);
     }
     memcpy(buf, data->data + offset, len);
     offset += len;
-    return 0;
 }
-int Decoding::get(char *name, uint16_t &nlen) {
-    if (get<uint16_t, 2>(nlen) != 0) {
-        return -1;
-    }
-    return get(name, (size_t)nlen);
+void Decoding::get(char *name, uint16_t &nlen) {
+    nlen = get<uint16_t, 2>();
+    get(name, (size_t)nlen);
 }
 
-int Decoding::get(char *name, uint16_t &nlen, char *value, uint16_t &vlen) {
-    if (get(name, nlen) == 0 && get(value, vlen) == 0) {
-        return 0;
+void Decoding::get(char *name, uint16_t &nlen, char *value, uint16_t &vlen) {
+    get(name, nlen);
+    get(value, vlen);
+}
+void Decoding::get(char *name, uint16_t &nlen, uint32_t &vlen) {
+    get(name, nlen);
+    vlen = get<uint32_t, 4>();
+}
+Data Decoding::getstring(std::size_t len) {
+    if (len) {
+        return getdata(len, true);
     } else {
-        return -1;
+        return getdata(get<uint16_t, 2>(), true);
     }
 }
-int Decoding::get(char *name, uint16_t &nlen, uint32_t &vlen) {
-    if (get(name, nlen) == 0 && get<uint32_t, 4>(vlen) == 0) {
-        return 0;
-    } else {
-        return -1;
+Data Decoding::getdata(size_t len, bool iss) {
+    Data val = BuildData(len, iss);
+    get(val->data, val->len);
+    return val;
+}
+
+void Decoding::inflate() {
+    if (data->inflate(offset)) {
+        throw Fail("Decoding inflate fail with offset(%ld)", offset);
     }
 }
 
@@ -179,7 +197,7 @@ Login::Login(const char *hash, const char *name, uint32_t cid, uint16_t port, ui
 
 Data Login::encode() {
     reset();
-    put(OP_LOGINREQUEST);
+    put((uint8_t)OP_LOGINREQUEST);
     put(hash, (size_t)16);
     put(cid);
     put(port);
@@ -193,42 +211,24 @@ Data Login::encode() {
     return Encoding::encode();
 }
 
-int Login::parse(Data &data) {
+void Login::parse(Data &data) {
     Decoding dec(data);
     int code;
-    uint8_t magic;
-    if (dec.get<uint8_t, 1>(magic) != 0) {
-        return -1;
-    }
+    uint8_t magic = dec.get<uint8_t, 1>();
     if (magic != OP_LOGINREQUEST) {
-        return 1;
+        throw Fail("Login parse fail with invalid magic, %x expected, but %x", OP_LOGINREQUEST, magic);
     }
-    if (dec.get(hash, 16) != 0) {
-        return -1;
-    }
-    if (dec.get<uint32_t, 4>(cid) != 0) {
-        return -1;
-    }
-    if (dec.get<uint16_t, 2>(port) != 0) {
-        return -1;
-    }
-    uint32_t tc = 0;
-    if (dec.get<uint32_t, 4>(tc) != 0) {
-        return -1;
-    }
-    char nbuf[256];
-    uint16_t nlen;
-    char vbuf[256];
-    uint16_t vlen;
+    dec.get(hash, 16);
+    cid = dec.get<uint32_t, 4>();
+    port = dec.get<uint16_t, 2>();
+    uint32_t tc = dec.get<uint32_t, 4>();
+    uint16_t nlen, vlen;
+    char nbuf[256], vbuf[256];
     uint32_t ival;
     for (uint32_t i = 0; i < tc; i++) {
-        if (dec.get<uint8_t, 1>(magic) != 0) {
-            return -1;
-        }
+        magic = dec.get<uint8_t, 1>();
         if (magic == STR_TAG) {
-            if (dec.get(nbuf, nlen, vbuf, vlen) != 0) {
-                return -1;
-            }
+            dec.get(nbuf, nlen, vbuf, vlen);
             switch ((unsigned char)nbuf[0]) {
                 case 0x1:
                     memcpy(name, vbuf, vlen);
@@ -236,9 +236,7 @@ int Login::parse(Data &data) {
                     break;
             }
         } else if (magic == INT_TAG) {
-            if (dec.get(nbuf, nlen, ival) != 0) {
-                return -1;
-            }
+            dec.get(nbuf, nlen, ival);
             switch ((unsigned char)nbuf[0]) {
                 case 0x11:
                     version = ival;
@@ -257,7 +255,6 @@ int Login::parse(Data &data) {
             continue;
         }
     }
-    return 0;
 }
 size_t Login::show(char *buf) {
     char tbuf[512];
@@ -279,29 +276,23 @@ SrvMessage::SrvMessage(const char *msg, size_t len) { this->msg = BuildData(msg,
 
 Data SrvMessage::encode() {
     reset();
-    put(OP_SERVERMESSAGE);
+    put((uint8_t)OP_SERVERMESSAGE);
     put((uint16_t)msg->len);
     put(msg);
     return Encoding::encode();
 }
-int SrvMessage::parse(Data &data) {
+void SrvMessage::parse(Data &data) {
     Decoding dec(data);
     uint16_t len;
-    uint8_t magic;
-    if (dec.get<uint8_t, 1>(magic) != 0) {
-        return -1;
-    }
+    uint8_t magic = dec.get<uint8_t, 1>();
     if (magic != OP_SERVERMESSAGE) {
-        return 1;
+        throw Fail("SrvMessage parse fail with invalid magic, %x expected, but %x", OP_SERVERMESSAGE, magic);
     }
-    if (dec.get<uint16_t, 2>(len) != 0) {
-        return -1;
-    }
+    len = dec.get<uint16_t, 2>();
     if (data->len < len + 2) {
-        return -1;
+        throw Fail("SrvMessage parse fail with need more data, %x expected, but %x", len, data->len - 2);
     }
     msg = data->sub(3, len);
-    return 0;
 }
 const char *SrvMessage::c_str() { return std::string(msg->data, msg->len).c_str(); }
 
@@ -312,25 +303,20 @@ IDCHANGE::IDCHANGE(uint32_t id, uint32_t bitmap) {
 
 Data IDCHANGE::encode() {
     reset();
-    put(OP_IDCHANGE);
+    put((uint8_t)OP_IDCHANGE);
     put(id);
     put(bitmap);
     return Encoding::encode();
 }
 
-int IDCHANGE::parse(Data &data) {
+void IDCHANGE::parse(Data &data) {
     Decoding dec(data);
-    uint8_t magic;
-    if (dec.get<uint8_t, 1>(magic) != 0) {
-        return -1;
-    }
+    uint8_t magic = dec.get<uint8_t, 1>();
     if (magic != OP_IDCHANGE) {
-        return 1;
+        throw Fail("IDCHANGE parse fail with invalid magic, %x expected, but %x", OP_IDCHANGE, magic);
     }
-    if (dec.get<uint32_t, 4>(id) != 0) {
-        return -1;
-    }
-    return dec.get<uint32_t, 4>(bitmap);
+    id = dec.get<uint32_t, 4>();
+    bitmap = dec.get<uint32_t, 4>();
 }
 
 SrvStatus::SrvStatus(uint32_t userc, uint32_t filec) {
@@ -340,35 +326,164 @@ SrvStatus::SrvStatus(uint32_t userc, uint32_t filec) {
 
 Data SrvStatus::encode() {
     reset();
-    put(OP_SERVERSTATUS);
+    put((uint8_t)OP_SERVERSTATUS);
     put(userc);
     put(filec);
     return Encoding::encode();
 }
 
-int SrvStatus::parse(Data &data) {
+void SrvStatus::parse(Data &data) {
     Decoding dec(data);
-    uint8_t magic;
-    if (dec.get<uint8_t, 1>(magic) != 0) {
-        return -1;
-    }
+    uint8_t magic = dec.get<uint8_t, 1>();
     if (magic != OP_SERVERSTATUS) {
-        return 1;
+        throw Fail("SrvStatus parse fail with invalid magic, %x expected, but %x", OP_SERVERSTATUS, magic);
     }
-    if (dec.get<uint32_t, 4>(userc) != 0) {
-        return -1;
-    }
-    return dec.get<uint32_t, 4>(filec);
+    userc = dec.get<uint32_t, 4>();
+    filec = dec.get<uint32_t, 4>();
 }
 
-OfferFile::OfferFile() {}
+void FTagParser::parse(Decoding &dec) {
+    uint16_t length;
+    type = dec.get<uint8_t, 1>();
+    if (type & 0x80) {
+        type &= 0x7F;
+        uname = dec.get<uint8_t, 1>();
+    } else {
+        length = dec.get<uint16_t, 2>();
+        printf("->%ld\n", length);
+        if (length == 1) {
+            uname = dec.get<uint8_t, 1>();
+        } else {
+            uname = 0;
+            sname = dec.getstring(length);
+        }
+    }
+    // NOTE: It's very important that we read the *entire* packet data, even if we do
+    // not use each tag. Otherwise we will get troubles when the packets are returned in
+    // a list - like the search results from a server.
+    if (type == TAGTYPE_STRING) {
+        sval = dec.getstring();
+    } else if (type == TAGTYPE_UINT32) {
+        u32v = dec.get<uint32_t, 4>();
+    } else if (type == TAGTYPE_UINT64) {
+        u64v = dec.get<uint64_t, 8>();
+    } else if (type == TAGTYPE_UINT16) {
+        u16v = dec.get<uint16_t, 2>();
+    } else if (type == TAGTYPE_UINT8) {
+        u8v = dec.get<uint8_t, 1>();
+    } else if (type == TAGTYPE_FLOAT32) {
+        //        data->Read(&m_fVal, 4);
+    } else if (type >= TAGTYPE_STR1 && type <= TAGTYPE_STR16) {
+        sval = dec.getstring(type - TAGTYPE_STR1 + 1);
+        type = TAGTYPE_STRING;
+    } else if (type == TAGTYPE_HASH) {
+        sval = dec.getdata(16);
+    } else if (type == TAGTYPE_BOOL) {
+    } else if (type == TAGTYPE_BOOLARRAY) {
+    } else if (type == TAGTYPE_BLOB) {
+        sval = dec.getdata(dec.get<uint32_t, 4>());
+    } else {
+        throw Fail("FTagParser Unknown tag: type=0x%02X  specialtag=%u\n", __FUNCTION__, type, uname);
+    }
+}
 
-Data OfferFile::encode() { return Encoding::encode(); }
+FileEntry_::~FileEntry_() { V_LOG_FREE("%s", "FileEntry_ free"); }
 
-int OfferFile::parse(Data &data) { return 0; }
+void FileEntry_::parse(Decoding &dec, uint8_t magic) {
+    dec.get(hash, 16);
+    cid = dec.get<uint32_t, 4>();
+    port = dec.get<uint16_t, 2>();
+    uint32_t tc = dec.get<uint32_t, 4>();
+    for (uint32_t i = 0; i < tc; i++) {
+        FTagParser tag;
+        tag.parse(dec);
+        if (tag.uname) {
+            if (tag.uname == FT_FILENAME && tag.sval.get()) {
+                name = tag.sval->share();
+            } else if (tag.uname == FT_FILESIZE) {
+                size = tag.u64v;
+            } else if (tag.uname == FT_FILETYPE && tag.sval.get()) {
+                type = tag.sval->share();
+            } else if (tag.uname == FT_FILEFORMAT && tag.sval.get()) {
+                format = tag.sval->share();
+            } else if (tag.uname == FT_SOURCES) {
+                sources = tag.u8v;
+            } else if (tag.uname == FT_COMPLETE_SOURCES) {
+                completed = tag.u8v;
+            } else if (tag.uname == FT_GAPSTART) {
+                gapstart = tag.u32v;
+            } else {
+                V_LOG_W("FileEntry found unknow tag(%02X) name(%02X)", tag.type, tag.uname);
+            }
+        } else if (tag.sname.get()) {
+            if (tag.sname->cmp("Artist") && tag.sval.get()) {
+                artist = tag.sval->share();
+            } else if (tag.sname->cmp("Album") && tag.sval.get()) {
+                album = tag.sval->share();
+            } else if (tag.sval->cmp("Title")) {
+                title = tag.sval->share();
+            } else if (tag.sval->cmp("length")) {
+                length = tag.u32v;
+            } else if (tag.sval->cmp("bitrate")) {
+                bitrate = tag.u32v;
+            } else if (tag.sval->cmp("codec")) {
+                codec = tag.u32v;
+            } else {
+                V_LOG_W("FileEntry found unknow tag:%02X", tag.type);
+            }
+        } else {
+            V_LOG_W("FileEntry found unknow tag:%ld", tag.type);
+        }
+    }
+}
+
+void FileEntry_::print() {
+    if (type.get()) {
+        printf("%s,%llu,%s\n", name->data, size, type->data);
+    } else if (format.get()) {
+        printf("%s,%llu,%s\n", name->data, size, format->data);
+    } else {
+        printf("%s,%llu,%u,%u\n", name->data, size, sources, completed);
+    }
+}
+
+std::string FileEntry_::shash() {
+    char buf[33];
+    for (int i = 0; i < 16; i++) {
+        sprintf(buf + i * 2, "%02X", hash[i]);
+    }
+    return std::string(buf);
+}
+
+FileEntry FileEntry_::share() { return shared_from_this(); }
+
+FileEntry BuildFileEntry() { return FileEntry(new FileEntry_()); }
+
+FileList::FileList() {}
+
+Data FileList::encode() { return Encoding::encode(); }
+
+void FileList::parse(Data &data, uint8_t magic) {
+    Decoding dec(data);
+    uint8_t magicx = dec.get<uint8_t, 1>();
+    if (magicx != OP_SEARCHRESULT && magicx != OP_OFFERFILES) {
+        throw Fail("FileList parse fail with invalid magic, %x or %x expected, but %x", OP_SERVERIDENT, OP_OFFERFILES,
+                   magicx);
+    }
+    if (magic == OP_PACKEDPROT) {
+        dec.inflate();
+    }
+    uint32_t rc = dec.get<uint32_t, 4>();
+    for (uint32_t i = 0; i < rc; i++) {
+        FileEntry fe = BuildFileEntry();
+        fe->parse(dec, magic);
+        fe->print();
+        this->fs[fe->shash()] = fe->share();
+    }
+}
 
 Data ListServer() {
-    char opcode = (char)OP_LIST_SERVER;
+    char opcode = (char)OP_SERVERSTATUS;
     return BuildData(&opcode, 1);
 }
 
@@ -376,7 +491,7 @@ ServerList::ServerList() {}
 
 Data ServerList::encode() {
     reset();
-    put(OP_SERVERLIST);
+    put((uint8_t)OP_SERVERLIST);
     BOOST_FOREACH (Address &srv, srvs) {
         put(srv.first);
         put(srv.second);
@@ -384,31 +499,20 @@ Data ServerList::encode() {
     return Encoding::encode();
 }
 
-int ServerList::parse(Data &data) {
+void ServerList::parse(Data &data) {
     Decoding dec(data);
-    uint8_t magic;
-    if (dec.get<uint8_t, 1>(magic) != 0) {
-        return -1;
-    }
+    uint8_t magic = dec.get<uint8_t, 1>();
     if (magic != OP_SERVERLIST) {
-        return 1;
+        throw Fail("ServerList parse fail with invalid magic, %x expected, but %x", OP_SERVERLIST, magic);
     }
-    uint8_t count;
-    if (dec.get<uint8_t, 1>(count) != 0) {
-        return -1;
-    }
+    uint8_t count = dec.get<uint8_t, 1>();
     uint32_t ip;
     uint16_t port;
     for (uint8_t i = 0; i < count; i++) {
-        if (dec.get<uint32_t, 4>(ip) != 0) {
-            return -1;
-        }
-        if (dec.get<uint16_t, 2>(port) != 0) {
-            return -1;
-        }
+        ip = dec.get<uint32_t, 4>();
+        port = dec.get<uint16_t, 2>();
         srvs.push_back(Address(ip, port));
     }
-    return 0;
 }
 
 ServerIndent::ServerIndent() {
@@ -429,7 +533,7 @@ ServerIndent::ServerIndent(const char *hash, uint32_t ip, uint32_t port, const c
 
 Data ServerIndent::encode() {
     reset();
-    put(OP_SERVERIDENT);
+    put((uint8_t)OP_SERVERIDENT);
     put(hash, 16);
     put(ip);
     put(port);
@@ -452,44 +556,25 @@ Data ServerIndent::encode() {
     return Encoding::encode();
 }
 
-int ServerIndent::parse(Data &data) {
+void ServerIndent::parse(Data &data) {
     Decoding dec(data);
-    int code;
-    uint8_t magic;
-    if (dec.get<uint8_t, 1>(magic) != 0) {
-        return -1;
-    }
+    uint8_t magic = dec.get<uint8_t, 1>();
     if (magic != OP_SERVERIDENT) {
-        return 1;
+        throw Fail("ServerIndent parse fail with invalid magic, %x expected, but %x", OP_SERVERIDENT, magic);
     }
-    if (dec.get(hash, 16) != 0) {
-        return -1;
-    }
-    if (dec.get<uint32_t, 4>(ip) != 0) {
-        return -1;
-    }
-    if (dec.get<uint16_t, 2>(port) != 0) {
-        return -1;
-    }
-    uint32_t tc = 0;
-    if (dec.get<uint32_t, 4>(tc) != 0) {
-        return -1;
-    }
-    char nbuf[256];
-    uint16_t nlen;
-    char vbuf[256];
-    uint16_t vlen;
+    dec.get(hash, 16);
+    ip = dec.get<uint32_t, 4>();
+    port = dec.get<uint16_t, 2>();
+    uint32_t tc = dec.get<uint32_t, 4>();
+    uint16_t nlen, vlen;
+    char nbuf[256], vbuf[256];
     uint32_t ival;
     for (uint32_t i = 0; i < tc; i++) {
-        if (dec.get<uint8_t, 1>(magic) != 0) {
-            return -1;
-        }
+        magic = dec.get<uint8_t, 1>();
         if (magic != STR_TAG) {
-            return -1;
+            throw Fail("ServerIndent parse fail with invalid magic, %x expected, but %x", STR_TAG, magic);
         }
-        if (dec.get(nbuf, nlen, vbuf, vlen) != 0) {
-            return -1;
-        }
+        dec.get(nbuf, nlen, vbuf, vlen);
         switch ((unsigned char)nbuf[0]) {
             case 0x1:
                 memcpy(name, vbuf, vlen);
@@ -501,7 +586,6 @@ int ServerIndent::parse(Data &data) {
                 break;
         }
     }
-    return 0;
 }
 
 SearchArgs::SearchArgs() {}
@@ -510,7 +594,7 @@ SearchArgs::SearchArgs(const char *search) { this->search = BuildData(search, st
 
 Data SearchArgs::encode() {
     reset();
-    put(OP_SEARCHREQUEST);
+    put((uint8_t)OP_SEARCHREQUEST);
     //        put((uint16_t)0);
     //        put(search->len);
     put((uint8_t)0x1);
@@ -519,15 +603,12 @@ Data SearchArgs::encode() {
     return Encoding::encode();
 }
 
-int SearchArgs::parse(Data &data) {
+void SearchArgs::parse(Data &data) {
     Decoding dec(data);
     int code;
-    uint8_t magic;
-    if (dec.get<uint8_t, 1>(magic) != 0) {
-        return -1;
-    }
+    uint8_t magic = dec.get<uint8_t, 1>();
     if (magic != OP_SEARCHREQUEST) {
-        return 1;
+        throw Fail("ServerIndent parse fail with invalid magic, %x expected, but %x", OP_SEARCHREQUEST, magic);
     }
     search = data->sub(1, data->len - 1);
     return 0;
