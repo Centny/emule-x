@@ -83,6 +83,17 @@ int ED2K_::OnCmd(Cmd c) {
             V_LOG_I("ED2K parse found source for hash(%s) with %d server", hash_tos(found.hash).c_str(),
                     found.srvs.size());
             return code;
+        case OP_CALLBACK_FAIL:
+            V_LOG_I("%s", "ED2K call back request fail...");
+            return code;
+        case OP_REJECT:
+            V_LOG_I("%s", "ED2K message rejected...");
+            return code;
+        case OP_CALLBACKREQUESTED:
+            CallbackRequested crs;
+            crs.parse(c->data);
+            V_LOG_I("ED2K parse callback requested to address(%s)", addr_cs(crs).c_str());
+            return code;
     }
     c->data->print(cbuf);
     V_LOG_W("ED2K receive unknow message:%s", cbuf);
@@ -131,6 +142,16 @@ void ED2K_::listSource(const char *hash, uint64_t size, boost::system::error_cod
         V_LOG_W("ED2K send get source by hash(%s) fail with code(%d)", hash_tos(hash).c_str(), ec.value());
     } else {
         V_LOG_D("ED2K send get source by hasn(%s) success", hash_tos(hash).c_str());
+    }
+}
+
+void ED2K_::callback(uint32_t cid, boost::system::error_code &ec) {
+    CallbackRequest args(cid);
+    send(args, ec);
+    if (ec) {
+        V_LOG_W("ED2K send callback request by cid(%lu) fail with code(%d)", cid, ec.value());
+    } else {
+        V_LOG_D("ED2K send callback request by cid(%lu) success", cid);
     }
 }
 

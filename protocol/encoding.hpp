@@ -238,6 +238,7 @@ Data ListServer();
  the ed2k server Address
  */
 typedef std::pair<uint32_t, uint16_t> Address;
+std::string addr_cs(Address &addr);
 /*
  the ed2k server
  */
@@ -304,6 +305,22 @@ class FoundSource : public Encoding {
     virtual Data encode();
     virtual void parse(Data &data);
 };
+
+class CallbackRequest : public Encoding {
+   public:
+    uint32_t cid;
+    CallbackRequest(uint32_t cid = 0);
+    virtual Data encode();
+    virtual void parse(Data &data);
+};
+
+class CallbackRequested : public Encoding, public Address {
+   public:
+    CallbackRequested();
+    virtual Data encode();
+    virtual void parse(Data &data);
+};
+
 //////////end encoding//////////
 }
 }

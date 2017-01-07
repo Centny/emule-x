@@ -483,7 +483,12 @@ Data ListServer() {
     char opcode = (char)OP_SERVERSTATUS;
     return BuildData(&opcode, 1);
 }
-
+std::string addr_cs(Address &addr) {
+    char buf[24];
+    size_t l = sprintf(buf, "%u.%u.%u.%u:%u", (addr.first >> 24 & 0xff), (addr.first >> 16 & 0xff),
+                       (addr.first >> 8 & 0xff), (addr.first & 0xff), addr.second);
+    return std::string(buf, l);
+}
 ServerList::ServerList() {}
 
 Data ServerList::encode() {
@@ -650,7 +655,7 @@ Data FoundSource::encode() {
     put((uint8_t)OP_FOUNDSOURCES_OBFU);
     //        put((uint16_t)0);
     //        put(search->len);
-    put(hash,16);
+    put(hash, 16);
     put((uint8_t)srvs.size());
     BOOST_FOREACH (Address &srv, srvs) {
         put(srv.first);
@@ -676,6 +681,40 @@ void FoundSource::parse(Data &data) {
         srvs.push_back(Address(ip, port));
         dec.get<uint8_t, 1>();
     }
+}
+
+CallbackRequest::CallbackRequest(uint32_t cid) { this->cid = cid; }
+Data CallbackRequest::encode() {
+    reset();
+    put((uint8_t)OP_CALLBACKREQUEST);
+    put(cid);
+    return Encoding::encode();
+}
+void CallbackRequest::parse(Data &data) {
+    Decoding dec(data);
+    uint8_t magic = dec.get<uint8_t, 1>();
+    if (magic != OP_CALLBACKREQUEST) {
+        throw Fail("CallbackRequest parse fail with invalid magic, %x expected, but %x", OP_CALLBACKREQUEST, magic);
+    }
+    cid = dec.get<uint32_t, 4>();
+}
+
+CallbackRequested::CallbackRequested() {}
+Data CallbackRequested::encode() {
+    reset();
+    put((uint8_t)OP_CALLBACKREQUESTED);
+    put((uint32_t)first);
+    put((uint16_t)second);
+    return Encoding::encode();
+}
+void CallbackRequested::parse(Data &data) {
+    Decoding dec(data);
+    uint8_t magic = dec.get<uint8_t, 1>();
+    if (magic != OP_CALLBACKREQUESTED) {
+        throw Fail("CallbackRequested parse fail with invalid magic, %x expected, but %x", OP_CALLBACKREQUESTED, magic);
+    }
+    first = dec.get<uint32_t, 4>();
+    second = dec.get<uint16_t, 2>();
 }
 //////////end encoding//////////
 }
