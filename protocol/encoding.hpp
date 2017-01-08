@@ -42,8 +42,26 @@ const uint8_t STR_TAG = 0x2;
 const uint8_t INT_TAG = 0x3;
 const uint8_t FLOAT_TAG = 0x4;
 
-ModH BuildMod();
+/*
+ the ed2k hash
+ */
+class Hash : public Data {
+   public:
+    Hash();
+    Hash(size_t len);
+    Hash(const char *buf, size_t len);
+    virtual ~Hash();
+    virtual void set(size_t len);
+    virtual void set(const char *buf, size_t len);
+    virtual bool operator==(const Hash &h) const;
+    virtual bool operator<(const Hash &h) const;
+    virtual std::string tostring();
+};
+Hash BuildHash(size_t len = 16);
+Hash BuildHash(const char *buf, size_t len = 16);
 std::string hash_tos(const char *hash);
+//
+ModH BuildMod();
 /*
  the ed2k base encoding for int/string/tag
  */
@@ -108,16 +126,16 @@ class Decoding {
 /*
  the ed2k login frame
  */
-class Login : public Encoding {
+class Login {
    public:
-    char hash[22];
+    Hash hash;
     uint32_t cid;
     uint16_t port;
     char name[256];
-    uint32_t port2;         // 0x0F
-    uint32_t version;       // 0x11
-    uint32_t flags;         // 0x20
-    uint32_t other = 0xc8;  // 0xfb
+    uint32_t port2;        // 0x0F
+    uint32_t version;      // 0x11
+    uint32_t flags;        // 0x20
+    uint32_t mver = 0xc8;  // 0xfb
 
    protected:
    public:
@@ -131,7 +149,7 @@ class Login : public Encoding {
 /*
  the ed2k server message
  */
-class SrvMessage : public Encoding {
+class SrvMessage {
    public:
     Data msg;
 
@@ -145,7 +163,7 @@ class SrvMessage : public Encoding {
 /*
  the ed2k client ID
  */
-class IDCHANGE : public Encoding {
+class IDCHANGE {
    public:
     uint32_t id;
     uint32_t bitmap;
@@ -158,7 +176,7 @@ class IDCHANGE : public Encoding {
 /*
  the ed2k server status
  */
-class SrvStatus : public Encoding {
+class SrvStatus {
    public:
     uint32_t userc;
     uint32_t filec;
@@ -192,7 +210,7 @@ typedef boost::shared_ptr<FileEntry_> FileEntry;
 
 class FileEntry_ : public boost::enable_shared_from_this<FileEntry_> {
    public:
-    char hash[16];
+    Hash hash;
     uint32_t cid = 0;
     uint16_t port = 0;
     Data name;              // 0x1
@@ -209,6 +227,7 @@ class FileEntry_ : public boost::enable_shared_from_this<FileEntry_> {
     uint32_t codec = 0;     // codec
     uint32_t gapstart = 0;  // 0x09
    public:
+    FileEntry_();
     virtual ~FileEntry_();
     virtual void parse(Decoding &dec, uint8_t magic);
     std::string shash();
@@ -219,7 +238,7 @@ FileEntry BuildFileEntry();
 /*
  the ed2k file list to upload
  */
-class FileList : public Encoding {
+class FileList {
    public:
     //    uint32_t filec;
     std::map<std::string, FileEntry> fs;
@@ -242,7 +261,7 @@ std::string addr_cs(Address &addr);
 /*
  the ed2k server
  */
-class ServerList : public Encoding {
+class ServerList {
    public:
     //        uint8_t count;
     std::list<Address> srvs;
@@ -253,9 +272,9 @@ class ServerList : public Encoding {
     virtual void parse(Data &data);
 };
 
-class ServerIndent : public Encoding {
+class ServerIndent {
    public:
-    char hash[16];
+    Hash hash;
     uint32_t ip;
     uint16_t port;
     char name[128];  // 0x1
@@ -267,7 +286,7 @@ class ServerIndent : public Encoding {
     virtual void parse(Data &data);
 };
 
-class SearchArgs : public Encoding {
+class SearchArgs {
    public:
     Data search;
     Data type;
@@ -283,9 +302,9 @@ class SearchArgs : public Encoding {
     virtual void parse(Data &data);
 };
 
-class GetSource : public Encoding {
+class GetSource {
    public:
-    char hash[16];
+    Hash hash;
     uint64_t size;
 
    public:
@@ -295,9 +314,9 @@ class GetSource : public Encoding {
     virtual void parse(Data &data);
 };
 
-class FoundSource : public Encoding {
+class FoundSource {
    public:
-    char hash[16];
+    Hash hash;
     std::list<Address> srvs;
 
    public:
@@ -306,7 +325,7 @@ class FoundSource : public Encoding {
     virtual void parse(Data &data);
 };
 
-class CallbackRequest : public Encoding {
+class CallbackRequest {
    public:
     uint32_t cid;
     CallbackRequest(uint32_t cid = 0);
@@ -314,12 +333,15 @@ class CallbackRequest : public Encoding {
     virtual void parse(Data &data);
 };
 
-class CallbackRequested : public Encoding, public Address {
+class CallbackRequested : public Address {
    public:
     CallbackRequested();
     virtual Data encode();
     virtual void parse(Data &data);
 };
+
+//////////c2c protocol//////////
+class Hello {};
 
 //////////end encoding//////////
 }

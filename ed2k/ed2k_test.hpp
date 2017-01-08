@@ -12,7 +12,7 @@ BOOST_AUTO_TEST_CASE(TesEd2k) {
     asio::io_service ios;
     ED2K ed2k(new ED2K_(ios));
     boost::system::error_code err;
-    ed2k->connect("10.211.55.8", 4122, err);
+    ed2k->connect(ed2k_c2s, "10.211.55.8", 4122, err);
     printf("ec:%d \n", err.value());
     BOOST_CHECK(err == 0);
     ios.run();

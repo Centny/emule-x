@@ -14,6 +14,115 @@ using namespace boost::endian;
 
 BOOST_AUTO_TEST_SUITE(Encoding)  // name of the test suite is stringtest
 
+BOOST_AUTO_TEST_CASE(TestHash) {
+    char data[] = {
+        0x4b, 0x7a, 0x86, 0x00, 0x28, 0x14, 0x76, 0x60, 0x2e, 0x9c, 0x71, 0x11, 0xb2, 0x28, 0x40, 0xfd,
+    };
+    char data2[] = {
+        0x4c, 0x7a, 0x86, 0x00, 0x28, 0x14, 0x76, 0x60, 0x2e, 0x9c, 0x71, 0x11, 0xb2, 0x28, 0x40, 0xfd,
+    };
+    char data3[] = {
+        0x4c, 0x7a, 0x86, 0x00, 0x28, 0x14, 0x76, 0x60, 0x2e, 0x9c, 0x71, 0x11, 0xb2,
+    };
+    Hash h1 = BuildHash(data, 16);
+    Hash h2 = BuildHash(data, 16);
+    Hash h3 = BuildHash(data2, 16);
+    Hash h4 = BuildHash(data3, 13);
+    BOOST_CHECK_EQUAL(h1 == h2, true);
+    BOOST_CHECK_EQUAL(h1.tostring() == h2.tostring(), true);
+    BOOST_CHECK_EQUAL(h2 == h3, false);
+    BOOST_CHECK_EQUAL(h3 == h4, false);
+    h2.reset();
+    BOOST_CHECK_EQUAL(h1 == h2, false);
+    h1.reset();
+    BOOST_CHECK_EQUAL(h1 == h2, false);
+    Hash h5 = BuildHash(16);
+    BOOST_CHECK_EQUAL(h1 == h5, false);
+    std::list<Hash> hs;
+    {
+        hs.push_back(BuildHash(data, 16));
+        hs.push_back(BuildHash(data, 16));
+    }
+    hs.clear();
+}
+
+BOOST_AUTO_TEST_CASE(TestHashFree) {
+    char data[] = {
+        0x4b, 0x7a, 0x86, 0x00, 0x28, 0x14, 0x76, 0x60, 0x2e, 0x9c, 0x71, 0x11, 0xb2, 0x28, 0x40, 0xfd,
+    };
+    char data2[] = {
+        0x4c, 0x7a, 0x86, 0x00, 0x28, 0x14, 0x76, 0x60, 0x2e, 0x9c, 0x71, 0x11, 0xb2, 0x28, 0x40, 0xfd,
+    };
+    std::list<Hash> hs;
+    {
+        hs.push_back(BuildHash(data, 16));
+        hs.push_back(BuildHash(data2, 16));
+    }
+    {
+        Hash h1 = hs.front();
+        Hash h2 = hs.back();
+        BOOST_CHECK_EQUAL(h1 == h2, false);
+        BOOST_CHECK_EQUAL(h1.tostring() == h2.tostring(), false);
+    }
+    hs.clear();
+}
+
+BOOST_AUTO_TEST_CASE(TestHashMap) {
+    char data[] = {
+        0x4b, 0x7a, 0x86, 0x00, 0x28, 0x14, 0x76, 0x60, 0x2e, 0x9c, 0x71, 0x11, 0xb2, 0x28, 0x40, 0xfd,
+    };
+    char data2[] = {
+        0x4c, 0x7a, 0x86, 0x00, 0x28, 0x14, 0x76, 0x60, 0x2e, 0x9c, 0x71, 0x11, 0xb2, 0x28, 0x40, 0xfd,
+    };
+    char data3[] = {
+        0x4c, 0x7a, 0x86, 0x00, 0x28, 0x14, 0x76, 0x60, 0x2e, 0x9c, 0x71, 0x11, 0xb2,
+    };
+    std::map<Hash, int> hs;
+    {
+        Hash h1 = BuildHash(data, 16);
+        Hash h2 = BuildHash(data, 16);
+        Hash h3 = BuildHash(data2, 16);
+        Hash h4 = BuildHash(data3, 13);
+        hs[h1] = 1;
+        hs[h1] = 2;
+        printf("size-%lu\n", hs.size());
+        BOOST_CHECK_EQUAL(hs.size(), 1);
+        hs[h2] = 1;
+        printf("size-%lu\n", hs.size());
+        BOOST_CHECK_EQUAL(hs.size(), 1);
+        hs[h3] = 1;
+        printf("size-%lu\n", hs.size());
+        BOOST_CHECK_EQUAL(hs.size(), 2);
+        hs[h4] = 1;
+        printf("size-%lu\n", hs.size());
+        BOOST_CHECK_EQUAL(hs.size(), 3);
+        //
+        Hash h5 = BuildHash(data, 16);
+        Hash h6 = BuildHash(data, 16);
+        BOOST_CHECK_EQUAL(h5 < h6, false);
+        h6.reset();
+        BOOST_CHECK_EQUAL(h5 < h6, true);
+        h5.reset();
+        BOOST_CHECK_EQUAL(h5 < h6, true);
+    }
+    hs.clear();
+}
+
+BOOST_AUTO_TEST_CASE(TestHax) {
+    std::map<std::string, int> hs;
+    {
+        hs[std::string("a")] = 1;
+        hs[std::string("b")] = 2;
+        printf("size-%lu\n", hs.size());
+        BOOST_CHECK_EQUAL(hs.size(), 2);
+        hs[std::string("a")] = 3;
+        hs[std::string("b")] = 4;
+        printf("size-%lu\n", hs.size());
+        BOOST_CHECK_EQUAL(hs.size(), 2);
+    }
+    hs.clear();
+}
+
 BOOST_AUTO_TEST_CASE(TesEncoding) {
     emulex::protocol::Encoding enc;
     //
@@ -117,11 +226,11 @@ BOOST_AUTO_TEST_CASE(TesLogin) {
     //
     Login login2;
     Data xx = login.encode();
-    login.print();
+    //    login.print();
     BOOST_CHECK_EQUAL(xx->len, 60);
     login2.parse(xx);
     login2.show();
-    BOOST_CHECK_EQUAL(strcmp(login.hash, login.hash), 0);
+//    BOOST_CHECK_EQUAL(strcmp(login.hash, login.hash), 0);
     BOOST_CHECK_EQUAL(login.cid, login2.cid);
     BOOST_CHECK_EQUAL(login.port, login2.port);
     BOOST_CHECK_EQUAL(strcmp(login.name, login.name), 0);
@@ -196,20 +305,20 @@ BOOST_AUTO_TEST_CASE(TesSrvMessage) {
     printf("%s->\n", smsg.c_str());
 }
 
-BOOST_AUTO_TEST_CASE(TesSrvMe) {
-    char data[] = {0x1,  0x10, 0x2a, 0xa,  0x9d, 0xba, 0x3b, 0xe,  0x8,  0x3b, 0xc0, 0xf2, 0xb8, 0xaf, 0xdc,
-                   0xc0, 0x6f, 0xcf, 0xa,  0xd3, 0x37, 0x8,  0x36, 0x12, 0x4,  0x0,  0x0,  0x0,  0x97, 0x1,
-                   0x65, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x89, 0x11, 0x3c, 0x88, 0xfb, 0x0,  0xbd, 0x97,
-                   0x55, 0x65, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x0,  0x0,  0x0,  0x0,  0x0,  0x0};
-    auto xdata = BuildData(data, 59);
-    Login login;
-    login.parse(xdata);
-    login.show();
-}
+// BOOST_AUTO_TEST_CASE(TesSrvMe) {
+//    char data[] = {0x1,  0x10, 0x2a, 0xa,  0x9d, 0xba, 0x3b, 0xe,  0x8,  0x3b, 0xc0, 0xf2, 0xb8, 0xaf, 0xdc,
+//                   0xc0, 0x6f, 0xcf, 0xa,  0xd3, 0x37, 0x8,  0x36, 0x12, 0x4,  0x0,  0x0,  0x0,  0x97, 0x1,
+//                   0x65, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x89, 0x11, 0x3c, 0x88, 0xfb, 0x0,  0xbd, 0x97,
+//                   0x55, 0x65, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x0,  0x0,  0x0,  0x0,  0x0,  0x0};
+//    auto xdata = BuildData(data, 59);
+//    Login login;
+//    login.parse(xdata);
+//    login.show();
+//}
 
 BOOST_AUTO_TEST_CASE(TestSearchArgs) {
     SearchArgs args1("abc");
-    args1.print();
+    //    args1.print();
     char data[] = {0x16, 0x1, 0x3, 0x0, 0x61, 0x62, 0x63};
     auto xdata = BuildData(data, 59);
     SearchArgs args2;
@@ -291,7 +400,7 @@ BOOST_AUTO_TEST_CASE(TestGetSource) {
         0x4b, 0x7a, 0x86, 0x0, 0x28, 0x14, 0x76, 0x60, 0x2e, 0x9c, 0x71, 0x11, 0xb2, 0x28, 0x40, 0xfd,  //
     };
     GetSource gs2(hash, 55064535);
-    gs2.print();
+    //    gs2.print();
     auto d = gs2.encode();
     for (int i = 0; i < 21; i++) {
         BOOST_CHECK_EQUAL(data[i], d->data[i]);
