@@ -30,25 +30,38 @@ enum con_t {
     ed2k_c2c = CT_ED2K_C2C,
 };
 std::string con_t_cs(con_t c);
+class Evn_ {
+   public:
+    virtual void OnLogined(ED2K_ &ed2k, uint64_t cid, uint32_t lid) = 0;
+    virtual void OnFoundFile(ED2K_ &ed2k, uint64_t cid, FileList &fs) = 0;
+    virtual void OnFoundSource(ED2K_ &ed2k, uint64_t cid, FoundSource &fs) = 0;
+};
+typedef boost::shared_ptr<Evn_> Evn;
+typedef std::pair<uint16_t, uint16_t> Port;
 class ED2K_ : public CmdH_, public ConH_, public boost::enable_shared_from_this<ED2K_> {
    public:
+    class Server {
+       public:
+        Address addr;
+        Port port;
+        IDCHANGE id;
+        SrvStatus status;
+        ServerIndent sid;
+        uint16_t from;
+    };
     asio::io_service &ios;
     char cbuf[102400];
     //
-    char hash[16];
-    char name[128];
+    Hash hash;
+    Data name;
     bool logined;
     //
     ModH mod;
+    Evn H;
     std::map<uint64_t, Acceptor> usrv;
     std::map<uint64_t, TCP> tcs;
     std::map<uint64_t, UDP> ucs;
-    std::map<uint64_t, IDCHANGE> ids;
-    std::map<uint64_t, SrvStatus> status;
-    std::map<uint64_t, ServerIndent> sids;
-    ServerList srvs;
-    FileList fs;
-    FoundSource found;
+    std::map<uint64_t, Server> esrv;
     //
     boost::system::error_code ecode;
 
@@ -56,8 +69,11 @@ class ED2K_ : public CmdH_, public ConH_, public boost::enable_shared_from_this<
     virtual void remove(TCP s);
 
    public:
-    ED2K_(asio::io_service &ios);
-    virtual Connector connect(con_t tag, const char *addr, unsigned short port, boost::system::error_code &err);
+    ED2K_(asio::io_service &ios, Hash &hash, Data &name, Evn h);
+    virtual Connector connect(con_t tag, uint32_t addr, uint16_t port, boost::system::error_code &err,
+                              uint16_t lport = 0, uint16_t pport = 0, uint32_t from = 0);
+    virtual Connector connect(con_t tag, const char *addr, uint16_t port, boost::system::error_code &err,
+                              uint16_t lport = 0, uint16_t pport = 0, uint32_t from = 0);
     virtual size_t send(uint64_t cid, Encoding &enc, boost::system::error_code &ec);
 
    protected:
@@ -72,8 +88,10 @@ class ED2K_ : public CmdH_, public ConH_, public boost::enable_shared_from_this<
     virtual void login(uint64_t cid, boost::system::error_code &ec);
     virtual void listServer(uint64_t cid, boost::system::error_code &ec);
     virtual void search(uint64_t cid, const char *key, boost::system::error_code &ec);
-    virtual void listSource(uint64_t cid, const char *hash, uint64_t size, boost::system::error_code &ec);
-    virtual void callback(uint64_t cid, uint32_t tcid, boost::system::error_code &ec);
+    virtual void listSource(uint64_t cid, Hash &hash, uint64_t size, boost::system::error_code &ec);
+    virtual void callback(uint64_t cid, uint32_t lid, boost::system::error_code &ec);
+    virtual void hello(uint64_t cid, uint64_t from, boost::system::error_code &ec);
+    //    virtual void request(uint64_t cid,uint64_t from,boost::system::error_code &ec);
 };
 
 //////////end ed2k//////////

@@ -26,18 +26,38 @@ std::string con_t_cs(con_t c) {
             return std::string("unknow");
     }
 }
-ED2K_::ED2K_(asio::io_service &ios) : ios(ios) { mod = BuildMod(); }
+ED2K_::ED2K_(asio::io_service &ios, Hash &hash, Data &name, Evn h) : ios(ios), hash(16) {
+    mod = BuildMod();
+    this->hash = hash;
+    this->name = name;
+    hash->data[5] = 14;
+    hash->data[15] = 111;
+    this->H = h;
+}
 
-Connector ED2K_::connect(con_t tag, const char *addr, unsigned short port, boost::system::error_code &err) {
+Connector ED2K_::connect(con_t tag, uint32_t addr, uint16_t port, boost::system::error_code &err, uint16_t lport,
+                         uint16_t pport, uint32_t from) {
     auto con = BuildConnector(ios, SHARED_TO(CmdH_), SHARED_TO(ConH_));
     con->tag = (uint32_t)tag;
     con->mod = this->mod;
+    if (lport) {
+        con->setlocal(lport);
+    }
     con->connect(addr, port, err);
     if (err) {
         return;
     }
     tcs[con->Id()] = con;
+    esrv[con->Id()].addr = Address(addr, port);
+    esrv[con->Id()].port = Port(lport, pport);
+    esrv[con->Id()].from = from;
     return con->share();
+}
+
+Connector ED2K_::connect(con_t tag, const char *addr, uint16_t port, boost::system::error_code &err, uint16_t lport,
+                         uint16_t pport, uint32_t from) {
+    auto uaddr = boost::asio::ip::address_v4::from_string(addr).to_ulong();
+    return connect(tag, uaddr, port, err, lport, pport, from);
 }
 
 // void ED2K_::OnSrvLogined() {
@@ -61,13 +81,22 @@ bool ED2K_::OnConn(TCP s, const boost::system::error_code &ec) {
         return;
     }
     V_LOG_D("ED2K tcp(%s) connected by local %s", con_t_cs((con_t)s->tag).c_str(), s->address().c_str());
-    if (s->tag == ed2k_c2s) {
-        //        srv = BuildAcceptor(ios, con->local, SHARED_TO(CmdH_), SHARED_TO(ConH_));
-        //        srv->reused = true;
-        //        srv->mod = con->mod;
-        //        srv->start(xec);
-        //        printf("connected:%d,%ld\n", xec.value(),s.use_count());
-        login(s->Id(), ecode);
+    switch (s->tag) {
+        case ed2k_c2s: {
+            //        srv = BuildAcceptor(ios, con->local, SHARED_TO(CmdH_), SHARED_TO(ConH_));
+            //        srv->reused = true;
+            //        srv->mod = con->mod;
+            //        srv->start(xec);
+            //        printf("connected:%d,%ld\n", xec.value(),s.use_count());
+            login(s->Id(), ecode);
+            break;
+        }
+        case ed2k_c2c: {
+            hello(s->Id(), esrv[s->Id()].from, ecode);
+            break;
+        }
+        default:
+            break;
     }
 
     return true;
@@ -85,52 +114,65 @@ int ED2K_::OnCmd(Cmd c) {
             return code;
         }
         case OP_IDCHANGE: {
-            IDCHANGE id;
+            auto id = esrv[c->Id()].id;
             id.parse(c->data);
             V_LOG_I("ED2K change id to %ld", id.id);
-            ids[c->Id()] = id;
             listServer(c->Id(), ecode);
+            H->OnLogined(*this, c->Id(), id.id);
             return code;
         }
         case OP_SERVERSTATUS: {
-            SrvStatus ss;
+            auto ss = esrv[c->Id()].status;
             ss.parse(c->data);
             V_LOG_I("ED2K change server status to user(%ld),file(%ld)", ss.userc, ss.filec);
-            status[c->Id()] = ss;
             return code;
         }
         case OP_SERVERLIST: {
+            ServerList srvs;
             srvs.parse(c->data);
             V_LOG_I("ED2K parse server list with %ld server found", srvs.srvs.size());
             return code;
         }
         case OP_SERVERIDENT: {
-            ServerIndent sid;
+            auto sid = esrv[c->Id()].sid;
             sid.parse(c->data);
-            V_LOG_I("ED2K parse server identification with server name(%s,%s)", sid.name, sid.desc);
-            sids[c->Id()] = sid;
+            V_LOG_I("ED2K parse server identification with (%s)", sid.tostr().c_str());
             return code;
         }
-        case OP_SEARCHRESULT:
+        case OP_SEARCHRESULT: {
+            FileList fs;
             fs.parse(c->data, c->header->data[0]);
             V_LOG_I("ED2K parse search result with %d found", fs.fs.size());
+            H->OnFoundFile(*this, c->Id(), fs);
             return code;
-        case OP_FOUNDSOURCES_OBFU:
+        }
+        case OP_FOUNDSOURCES_OBFU: {
+            FoundSource found;
             found.parse(c->data);
             V_LOG_I("ED2K parse found source for hash(%s) with %d server", found.hash.tostring().c_str(),
                     found.srvs.size());
+            H->OnFoundSource(*this, c->Id(), found);
             return code;
+        }
         case OP_CALLBACK_FAIL:
             V_LOG_I("%s", "ED2K call back request fail...");
             return code;
         case OP_REJECT:
             V_LOG_I("%s", "ED2K message rejected...");
             return code;
-        case OP_CALLBACKREQUESTED:
+        case OP_CALLBACKREQUESTED: {
             CallbackRequested crs;
             crs.parse(c->data);
             V_LOG_I("ED2K parse callback requested to address(%s)", addr_cs(crs).c_str());
             return code;
+        }
+        case OP_HELLOANSWER: {
+            c->data->print();
+            Hello hl(OP_HELLOANSWER);
+            hl.parse(c->data);
+            V_LOG_I("ED2K parse hello answer by (%s)", hl.tostr().c_str());
+            return code;
+        }
     }
     c->data->print(cbuf);
     V_LOG_W("ED2K receive unknow message:%s", cbuf);
@@ -142,6 +184,8 @@ size_t ED2K_::write(uint64_t cid, Data data, boost::system::error_code &ec) {
         ec = boost::asio::error::not_connected;
         return 0;
     }
+    //    V_LOG_D("%s", "ED2K_ sending data->");
+    //    data->print();
     return tcs[cid]->write(data, ec);
 }
 
@@ -149,13 +193,11 @@ size_t ED2K_::send(uint64_t cid, Encoding &enc, boost::system::error_code &ec) {
 
 void ED2K_::login(uint64_t cid, boost::system::error_code &ec) {
     unsigned short port = 0;
-    hash[5] = 14;
-    hash[15] = 111;
     write(cid, Login(hash, name).encode(), ec);
     if (ec) {
-        V_LOG_W("ED2K send login by name(%s),port(%d) fail with code(%d)", name, port, ec.value());
+        V_LOG_W("ED2K send login by name(%s),port(%d) fail with code(%d)", name->data, port, ec.value());
     } else {
-        V_LOG_D("ED2K send login by name(%s),port(%d) success", name, port);
+        V_LOG_D("ED2K send login by name(%s),port(%d) success", name->data, port);
     }
 }
 
@@ -177,12 +219,12 @@ void ED2K_::search(uint64_t cid, const char *key, boost::system::error_code &ec)
     }
 }
 
-void ED2K_::listSource(uint64_t cid, const char *hash, uint64_t size, boost::system::error_code &ec) {
+void ED2K_::listSource(uint64_t cid, Hash &hash, uint64_t size, boost::system::error_code &ec) {
     write(cid, GetSource(hash, size).encode(), ec);
     if (ec) {
-        V_LOG_W("ED2K send get source by hash(%s) fail with code(%d)", hash_tos(hash).c_str(), ec.value());
+        V_LOG_W("ED2K send get source by hash(%s) fail with code(%d)", hash.tostring().c_str(), ec.value());
     } else {
-        V_LOG_D("ED2K send get source by hasn(%s) success", hash_tos(hash).c_str());
+        V_LOG_D("ED2K send get source by hasn(%s) success", hash.tostring().c_str());
     }
 }
 
@@ -192,6 +234,22 @@ void ED2K_::callback(uint64_t cid, uint32_t tcid, boost::system::error_code &ec)
         V_LOG_W("ED2K send callback request by cid(%lu) fail with code(%d)", cid, ec.value());
     } else {
         V_LOG_D("ED2K send callback request by cid(%lu) success", cid);
+    }
+}
+
+void ED2K_::hello(uint64_t cid, uint64_t from, boost::system::error_code &ec) {
+    Hello args(OP_HELLO);
+    args.hash = hash;
+    args.cid = esrv[from].id.id;
+    args.port = esrv[from].port.second;
+    args.name = name;
+    args.saddr = esrv[from].addr.first;
+    args.sport = esrv[from].addr.second;
+    write(cid, args.encode(), ec);
+    if (ec) {
+        V_LOG_W("ED2K send hello to %s fail with code(%d)", addr_cs(esrv[cid].addr).c_str(), ec.value());
+    } else {
+        V_LOG_D("ED2K send hello to %s success", addr_cs(esrv[cid].addr).c_str(), cid);
     }
 }
 

@@ -4,7 +4,7 @@ clang-format -style=file -i -sort-includes **/*.cpp **/*.hpp #**/*.hpp **/*.cc *
 # export DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH:.
 if [ "$1" = "test" ];then
     export GYP_DEFINES="other_cflags='-fprofile-arcs -ftest-coverage' other_lflags='-fprofile-arcs -ftest-coverage'"
-    # rm -rf build
+    rm -rf build
 fi
 
 # rm -rf build

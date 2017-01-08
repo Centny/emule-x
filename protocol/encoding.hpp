@@ -41,6 +41,9 @@ using namespace butils::netw;
 const uint8_t STR_TAG = 0x2;
 const uint8_t INT_TAG = 0x3;
 const uint8_t FLOAT_TAG = 0x4;
+//
+#define S_USR_NAME_L 128
+#define S_DESC_L 256
 
 /*
  the ed2k hash
@@ -74,13 +77,16 @@ class Encoding {
     virtual Data encode();
     Encoding &put(Data &data);
     Encoding &put(const char *val, size_t len);
-    Encoding &put(uint8_t val);
-    Encoding &put(uint16_t val);
-    Encoding &put(uint32_t val);
-    Encoding &put(uint64_t val);
+    Encoding &put(uint8_t val, bool big = false);
+    Encoding &put(uint16_t val, bool big = false);
+    Encoding &put(uint32_t val, bool big = false);
+    Encoding &put(uint64_t val, bool big = false);
     //    Encoding& put(float val);
     Encoding &putv(const char *name, const char *val);
+    Encoding &putv(Data &name, Data &val);
     Encoding &putv(uint8_t name, const char *val);
+    Encoding &putv(uint8_t name, Data &val);
+    Encoding &putv(const char *name, Data &val);
     Encoding &putv(const char *name, uint32_t val);
     Encoding &putv(uint8_t name, uint32_t val);
     //  Encoding &put(const char *name, float val);
@@ -101,11 +107,16 @@ class Decoding {
     Decoding(Data &data);
     virtual ~Decoding();
     template <typename T, std::size_t n_bits>
-    T get() {
+    T get(bool big = false) {
         if (data->len - offset < n_bits) {
             throw Fail("decode fail with not enough data, expect %ld, but %ld", n_bits, data->len - offset);
         }
-        T val = boost::endian::detail::load_little_endian<T, n_bits>(data->data + offset);
+        T val;
+        if (big) {
+            val = boost::endian::detail::load_big_endian<T, n_bits>(data->data + offset);
+        } else {
+            val = boost::endian::detail::load_little_endian<T, n_bits>(data->data + offset);
+        }
         offset += n_bits;
         return val;
     }
@@ -131,7 +142,7 @@ class Login {
     Hash hash;
     uint32_t cid;
     uint16_t port;
-    char name[256];
+    Data name;
     uint32_t port2;        // 0x0F
     uint32_t version;      // 0x11
     uint32_t flags;        // 0x20
@@ -140,7 +151,7 @@ class Login {
    protected:
    public:
     Login();
-    Login(const char *hash, const char *name, uint32_t cid = 0, uint16_t port = 4662, uint32_t version = 0x3C,
+    Login(Hash &hash, Data &name, uint32_t cid = 0, uint16_t port = 4662, uint32_t version = 0x3C,
           uint32_t flags = 0x319);
     virtual Data encode();
     virtual void parse(Data &data);
@@ -188,14 +199,14 @@ class SrvStatus {
 };
 class FTagParser {
    public:
-    uint8_t type;
-    uint8_t uname;
+    uint8_t type = 0;
+    uint8_t uname = 0;
     Data sname;
     //
-    uint8_t u8v;
-    uint16_t u16v;
-    uint32_t u32v;
-    uint64_t u64v;
+    uint8_t u8v = 0;
+    uint16_t u16v = 0;
+    uint32_t u32v = 0;
+    uint64_t u64v = 0;
     bool bval;
     Data sval;
 
@@ -241,7 +252,7 @@ FileEntry BuildFileEntry();
 class FileList {
    public:
     //    uint32_t filec;
-    std::map<std::string, FileEntry> fs;
+    std::vector<FileEntry> fs;
 
    public:
     FileList();
@@ -275,15 +286,16 @@ class ServerList {
 class ServerIndent {
    public:
     Hash hash;
-    uint32_t ip;
-    uint16_t port;
-    char name[128];  // 0x1
-    char desc[256];  // 0xB
+    uint32_t addr = 0;
+    uint16_t port = 0;
+    Data name;  // 0x1
+    Data desc;  // 0xB
    public:
     ServerIndent();
-    ServerIndent(const char *hash, uint32_t ip, uint32_t port, const char *name, const char *desc);
+    ServerIndent(Hash &hash, uint32_t addr, uint32_t port, Data &name, Data &desc);
     virtual Data encode();
     virtual void parse(Data &data);
+    std::string tostr();
 };
 
 class SearchArgs {
@@ -309,7 +321,7 @@ class GetSource {
 
    public:
     GetSource();
-    GetSource(const char *hash, uint64_t size);
+    GetSource(Hash &hash, uint64_t size);
     virtual Data encode();
     virtual void parse(Data &data);
 };
@@ -317,7 +329,7 @@ class GetSource {
 class FoundSource {
    public:
     Hash hash;
-    std::list<Address> srvs;
+    std::vector<Address> srvs;
 
    public:
     FoundSource();
@@ -341,8 +353,50 @@ class CallbackRequested : public Address {
 };
 
 //////////c2c protocol//////////
-class Hello {};
+class Hello {
+   public:
+    uint8_t magic;
+    Hash hash;
+    uint32_t cid;
+    uint16_t port;
+    Data name;       // 0x01
+    Data version;    // 0x11
+    uint16_t port2;  // 0x0f
+    uint32_t saddr;
+    uint16_t sport;
 
+   public:
+    Hello(uint8_t magic);
+    virtual Data encode();
+    virtual void parse(Data &data);
+    std::string tostr();
+};
+
+typedef std::pair<uint32_t, uint32_t> FilePart;
+class RequestParts {
+   public:
+    Hash hash;
+    std::vector<FilePart> parts;
+
+   public:
+    RequestParts();
+    virtual void addPart(uint32_t beg, uint32_t end);
+    virtual Data encode();
+    virtual void parse(Data &data);
+};
+
+class SendingPart {
+   public:
+    Hash hash;
+    uint32_t start = 0;
+    uint32_t end = 0;
+    Data part;
+
+   public:
+    SendingPart();
+    virtual Data encode();
+    virtual void parse(Data &data);
+};
 //////////end encoding//////////
 }
 }
