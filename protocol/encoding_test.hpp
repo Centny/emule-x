@@ -230,7 +230,7 @@ BOOST_AUTO_TEST_CASE(TesLogin) {
     BOOST_CHECK_EQUAL(xx->len, 60);
     login2.parse(xx);
     login2.show();
-//    BOOST_CHECK_EQUAL(strcmp(login.hash, login.hash), 0);
+    //    BOOST_CHECK_EQUAL(strcmp(login.hash, login.hash), 0);
     BOOST_CHECK_EQUAL(login.cid, login2.cid);
     BOOST_CHECK_EQUAL(login.port, login2.port);
     BOOST_CHECK_EQUAL(strcmp(login.name, login.name), 0);

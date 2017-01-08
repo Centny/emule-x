@@ -12,24 +12,18 @@ namespace emulex {
 namespace protocol {
 using namespace boost::endian::detail;
 
-    Hash::Hash(){
-        
-    }
-    
+Hash::Hash() {}
+
 Hash::Hash(size_t len) : Data(new Data_(len, false)) {}
 
 Hash::Hash(const char *buf, size_t len) : Data(new Data_(buf, len)) {}
 
 Hash::~Hash() { V_LOG_FREE("%s", "Hash_ free..."); }
 
-    void Hash::set(size_t len){
-        this->reset(new Data_(len, false));
-    }
-    
-    void Hash::set(const char *buf, size_t len){
-        this->reset(new Data_(buf,len, false));
-    }
-    
+void Hash::set(size_t len) { this->reset(new Data_(len, false)); }
+
+void Hash::set(const char *buf, size_t len) { this->reset(new Data_(buf, len, false)); }
+
 bool Hash::operator==(const Hash &h) const {
     Data_ *a = get();
     Data_ *b = h.get();
@@ -245,7 +239,7 @@ void Decoding::inflate() {
     }
 }
 
-    Login::Login():hash(16) {
+Login::Login() : hash(16) {
     memset(name, 0, 256);
     cid = 0;
     port = 0;
@@ -254,7 +248,8 @@ void Decoding::inflate() {
     mver = 0 << 17 | 50 << 10 | 0 << 7;
 }
 
-    Login::Login(const char *hash, const char *name, uint32_t cid, uint16_t port, uint32_t version, uint32_t flags):hash(16) {
+Login::Login(const char *hash, const char *name, uint32_t cid, uint16_t port, uint32_t version, uint32_t flags)
+    : hash(16) {
     memset(this->name, 0, 256);
     strcpy(this->name, name);
     this->cid = cid;
@@ -466,8 +461,7 @@ void FTagParser::parse(Decoding &dec) {
     }
 }
 
-FileEntry_::FileEntry_():hash(16){
-}
+FileEntry_::FileEntry_() : hash(16) {}
 
 FileEntry_::~FileEntry_() { V_LOG_FREE("%s", "FileEntry_ free"); }
 
@@ -519,7 +513,9 @@ void FileEntry_::parse(Decoding &dec, uint8_t magic) {
     }
 }
 
-void FileEntry_::print() { printf("%s,%s,%llu,%u,%u\n", hash.tostring().c_str(), name->data, size, sources, completed); }
+void FileEntry_::print() {
+    printf("%s,%s,%llu,%u,%u\n", hash.tostring().c_str(), name->data, size, sources, completed);
+}
 
 std::string FileEntry_::shash() { return hash.tostring(); }
 
@@ -595,14 +591,15 @@ void ServerList::parse(Data &data) {
     }
 }
 
-    ServerIndent::ServerIndent() :hash(16){
+ServerIndent::ServerIndent() : hash(16) {
     this->ip = 0;
     this->port = 0;
     memset(this->name, 0, 128);
     memset(this->desc, 0, 256);
 }
 
-ServerIndent::ServerIndent(const char *hash, uint32_t ip, uint32_t port, const char *name, const char *desc) :hash(16){
+ServerIndent::ServerIndent(const char *hash, uint32_t ip, uint32_t port, const char *name, const char *desc)
+    : hash(16) {
     this->ip = ip;
     this->port = port;
     strncpy(this->name, name, 128);
@@ -695,11 +692,9 @@ void SearchArgs::parse(Data &data) {
     return 0;
 }
 
-    GetSource::GetSource() :hash(16){}
+GetSource::GetSource() : hash(16) {}
 
-    GetSource::GetSource(const char *hash, uint64_t size):hash(16) {
-    this->size = size;
-}
+GetSource::GetSource(const char *hash, uint64_t size) : hash(16) { this->size = size; }
 
 Data GetSource::encode() {
     auto enc = new Encoding();
@@ -729,7 +724,7 @@ void GetSource::parse(Data &data) {
     }
 }
 
-    FoundSource::FoundSource():hash(16) {}
+FoundSource::FoundSource() : hash(16) {}
 
 Data FoundSource::encode() {
     auto enc = new Encoding();

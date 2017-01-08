@@ -92,18 +92,25 @@ int ED2K_::OnCmd(Cmd c) {
             listServer(c->Id(), ecode);
             return code;
         }
-        case OP_SERVERSTATUS:
-            status.parse(c->data);
-            V_LOG_I("ED2K change server status to user(%ld),file(%ld)", status.userc, status.filec);
+        case OP_SERVERSTATUS: {
+            SrvStatus ss;
+            ss.parse(c->data);
+            V_LOG_I("ED2K change server status to user(%ld),file(%ld)", ss.userc, ss.filec);
+            status[c->Id()] = ss;
             return code;
-        case OP_SERVERLIST:
+        }
+        case OP_SERVERLIST: {
             srvs.parse(c->data);
             V_LOG_I("ED2K parse server list with %ld server found", srvs.srvs.size());
             return code;
-        case OP_SERVERIDENT:
+        }
+        case OP_SERVERIDENT: {
+            ServerIndent sid;
             sid.parse(c->data);
             V_LOG_I("ED2K parse server identification with server name(%s,%s)", sid.name, sid.desc);
+            sids[c->Id()] = sid;
             return code;
+        }
         case OP_SEARCHRESULT:
             fs.parse(c->data, c->header->data[0]);
             V_LOG_I("ED2K parse search result with %d found", fs.fs.size());

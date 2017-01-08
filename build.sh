@@ -4,7 +4,7 @@ clang-format -style=file -i -sort-includes **/*.cpp **/*.hpp #**/*.hpp **/*.cc *
 # export DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH:.
 if [ "$1" = "test" ];then
     export GYP_DEFINES="other_cflags='-fprofile-arcs -ftest-coverage' other_lflags='-fprofile-arcs -ftest-coverage'"
-    rm -rf build
+    # rm -rf build
 fi
 
 # rm -rf build
@@ -13,7 +13,11 @@ xcodebuild -project emule-x.xcodeproj -configuration Default
 
 if [ "$1" = "test" ];then
     cd ./build/Default/
-    ./emule_x.test 2>err.log
+    if [ "$2" = "" ];then
+        ./emule_x.test 2>err.log
+    else
+        ./emule_x.test --run_test=$2 2>err.log
+    fi
     cd ../../
     rm -rf report
     mkdir -p report/html

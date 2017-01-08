@@ -44,9 +44,9 @@ class ED2K_ : public CmdH_, public ConH_, public boost::enable_shared_from_this<
     std::map<uint64_t, TCP> tcs;
     std::map<uint64_t, UDP> ucs;
     std::map<uint64_t, IDCHANGE> ids;
-    SrvStatus status;
+    std::map<uint64_t, SrvStatus> status;
+    std::map<uint64_t, ServerIndent> sids;
     ServerList srvs;
-    ServerIndent sid;
     FileList fs;
     FoundSource found;
     //
