@@ -154,7 +154,7 @@ class Login {
     Login(Hash &hash, Data &name, uint32_t cid = 0, uint16_t port = 4662, uint32_t version = 0x3C,
           uint32_t flags = 0x319);
     virtual Data encode();
-    virtual void parse(Data &data);
+    virtual void parse(Data &data, uint8_t magic = OP_EDONKEYPROT);
     virtual size_t show(char *buf = 0);
 };
 /*
@@ -168,7 +168,7 @@ class SrvMessage {
     SrvMessage();
     SrvMessage(const char *msg, size_t len = 0);
     virtual Data encode();
-    virtual void parse(Data &data);
+    virtual void parse(Data &data, uint8_t magic = OP_EDONKEYPROT);
     virtual const char *c_str();
 };
 /*
@@ -182,7 +182,7 @@ class IDCHANGE {
    public:
     IDCHANGE(uint32_t id = 0, uint32_t bitmap = 0x00000001);
     virtual Data encode();
-    virtual void parse(Data &data);
+    virtual void parse(Data &data, uint8_t magic = OP_EDONKEYPROT);
 };
 /*
  the ed2k server status
@@ -195,7 +195,7 @@ class SrvStatus {
    public:
     SrvStatus(uint32_t userc = 0, uint32_t filec = 0);
     virtual Data encode();
-    virtual void parse(Data &data);
+    virtual void parse(Data &data, uint8_t magic = OP_EDONKEYPROT);
 };
 class FTagParser {
    public:
@@ -240,7 +240,7 @@ class FileEntry_ : public boost::enable_shared_from_this<FileEntry_> {
    public:
     FileEntry_();
     virtual ~FileEntry_();
-    virtual void parse(Decoding &dec, uint8_t magic);
+    virtual void parse(Decoding &dec, uint8_t magic = OP_EDONKEYPROT);
     std::string shash();
     virtual FileEntry share();
     virtual void print();
@@ -258,7 +258,7 @@ class FileList {
     FileList();
     //    virtual ~FileList();
     virtual Data encode();
-    virtual void parse(Data &data, uint8_t magic);
+    virtual void parse(Data &data, uint8_t magic = OP_EDONKEYPROT);
 };
 /*
  the ed2k list server frame
@@ -280,7 +280,7 @@ class ServerList {
    public:
     ServerList();
     virtual Data encode();
-    virtual void parse(Data &data);
+    virtual void parse(Data &data, uint8_t magic = OP_EDONKEYPROT);
 };
 
 class ServerIndent {
@@ -294,7 +294,7 @@ class ServerIndent {
     ServerIndent();
     ServerIndent(Hash &hash, uint32_t addr, uint32_t port, Data &name, Data &desc);
     virtual Data encode();
-    virtual void parse(Data &data);
+    virtual void parse(Data &data, uint8_t magic = OP_EDONKEYPROT);
     std::string tostr();
 };
 
@@ -311,7 +311,7 @@ class SearchArgs {
     SearchArgs();
     SearchArgs(const char *search);
     virtual Data encode();
-    virtual void parse(Data &data);
+    virtual void parse(Data &data, uint8_t magic = OP_EDONKEYPROT);
 };
 
 class GetSource {
@@ -323,7 +323,7 @@ class GetSource {
     GetSource();
     GetSource(Hash &hash, uint64_t size);
     virtual Data encode();
-    virtual void parse(Data &data);
+    virtual void parse(Data &data, uint8_t magic = OP_EDONKEYPROT);
 };
 
 class FoundSource {
@@ -334,7 +334,7 @@ class FoundSource {
    public:
     FoundSource();
     virtual Data encode();
-    virtual void parse(Data &data);
+    virtual void parse(Data &data, uint8_t magic = OP_EDONKEYPROT);
 };
 
 class CallbackRequest {
@@ -342,14 +342,14 @@ class CallbackRequest {
     uint32_t cid;
     CallbackRequest(uint32_t cid = 0);
     virtual Data encode();
-    virtual void parse(Data &data);
+    virtual void parse(Data &data, uint8_t magic = OP_EDONKEYPROT);
 };
 
 class CallbackRequested : public Address {
    public:
     CallbackRequested();
     virtual Data encode();
-    virtual void parse(Data &data);
+    virtual void parse(Data &data, uint8_t magic = OP_EDONKEYPROT);
 };
 
 //////////c2c protocol//////////
@@ -368,7 +368,7 @@ class Hello {
    public:
     Hello(uint8_t magic);
     virtual Data encode();
-    virtual void parse(Data &data);
+    virtual void parse(Data &data, uint8_t magic = OP_EDONKEYPROT);
     std::string tostr();
 };
 
@@ -382,7 +382,7 @@ class RequestParts {
     RequestParts();
     virtual void addPart(uint32_t beg, uint32_t end);
     virtual Data encode();
-    virtual void parse(Data &data);
+    virtual void parse(Data &data, uint8_t magic = OP_EDONKEYPROT);
 };
 
 class SendingPart {
@@ -395,7 +395,39 @@ class SendingPart {
    public:
     SendingPart();
     virtual Data encode();
-    virtual void parse(Data &data);
+    virtual void parse(Data &data, uint8_t magic = OP_EDONKEYPROT);
+};
+
+class MagicHash {
+   public:
+    uint8_t magic;
+    Hash hash;
+
+   public:
+    MagicHash(uint8_t magic);
+    virtual Data encode();
+    virtual void parse(Data &data, uint8_t magic = OP_EDONKEYPROT);
+};
+
+class UploadRequest : public MagicHash {
+   public:
+    UploadRequest() : MagicHash(OP_STARTUPLOADREQ) {}
+};
+
+class HashsetRequest : public MagicHash {
+   public:
+    HashsetRequest() : MagicHash(OP_HASHSETREQUEST) {}
+};
+
+class HashsetAnswer {
+   public:
+    Hash hash;
+    std::vector<Hash> parts;
+
+   public:
+    HashsetAnswer();
+    virtual Data encode();
+    virtual void parse(Data &data, uint8_t magic = OP_EDONKEYPROT);
 };
 //////////end encoding//////////
 }

@@ -312,12 +312,15 @@ Data Login::encode() {
     return data;
 }
 
-void Login::parse(Data &data) {
+void Login::parse(Data &data, uint8_t magic) {
     Decoding dec(data);
     int code;
-    uint8_t magic = dec.get<uint8_t, 1>();
-    if (magic != OP_LOGINREQUEST) {
-        throw Fail("Login parse fail with invalid magic, %x expected, but %x", OP_LOGINREQUEST, magic);
+    uint8_t xmagic = dec.get<uint8_t, 1>();
+    if (xmagic != OP_LOGINREQUEST) {
+        throw Fail("Login parse fail with invalid magic, %x expected, but %x", OP_LOGINREQUEST, xmagic);
+    }
+    if (magic == OP_PACKEDPROT) {
+        dec.inflate();
     }
     dec.get(hash->data, hash->len);
     cid = dec.get<uint32_t, 4>();
@@ -387,15 +390,18 @@ Data SrvMessage::encode() {
     return data;
 }
 
-void SrvMessage::parse(Data &data) {
+void SrvMessage::parse(Data &data, uint8_t magic) {
     Decoding dec(data);
-    uint8_t magic = dec.get<uint8_t, 1>();
-    if (magic != OP_SERVERMESSAGE) {
-        throw Fail("SrvMessage parse fail with invalid magic, %x expected, but %x", OP_SERVERMESSAGE, magic);
+    uint8_t xmagic = dec.get<uint8_t, 1>();
+    if (xmagic != OP_SERVERMESSAGE) {
+        throw Fail("SrvMessage parse fail with invalid magic, %x expected, but %x", OP_SERVERMESSAGE, xmagic);
+    }
+    if (magic == OP_PACKEDPROT) {
+        dec.inflate();
     }
     uint16_t len = dec.get<uint16_t, 2>();
-    if (data->len < len + 2) {
-        throw Fail("SrvMessage parse fail with need more data, %x expected, but %x", len, data->len - 2);
+    if (data->len < len + 3) {
+        throw Fail("SrvMessage parse fail with need more data, %x expected, but %x", len, data->len - 3);
     }
     msg = data->sub(3, len, true);
 }
@@ -417,11 +423,14 @@ Data IDCHANGE::encode() {
     return data;
 }
 
-void IDCHANGE::parse(Data &data) {
+void IDCHANGE::parse(Data &data, uint8_t magic) {
     Decoding dec(data);
-    uint8_t magic = dec.get<uint8_t, 1>();
-    if (magic != OP_IDCHANGE) {
-        throw Fail("IDCHANGE parse fail with invalid magic, %x expected, but %x", OP_IDCHANGE, magic);
+    uint8_t xmagic = dec.get<uint8_t, 1>();
+    if (xmagic != OP_IDCHANGE) {
+        throw Fail("IDCHANGE parse fail with invalid magic, %x expected, but %x", OP_IDCHANGE, xmagic);
+    }
+    if (magic == OP_PACKEDPROT) {
+        dec.inflate();
     }
     id = dec.get<uint32_t, 4>();
     bitmap = dec.get<uint32_t, 4>();
@@ -442,11 +451,14 @@ Data SrvStatus::encode() {
     return data;
 }
 
-void SrvStatus::parse(Data &data) {
+void SrvStatus::parse(Data &data, uint8_t magic) {
     Decoding dec(data);
-    uint8_t magic = dec.get<uint8_t, 1>();
-    if (magic != OP_SERVERSTATUS) {
-        throw Fail("SrvStatus parse fail with invalid magic, %x expected, but %x", OP_SERVERSTATUS, magic);
+    uint8_t xmagic = dec.get<uint8_t, 1>();
+    if (xmagic != OP_SERVERSTATUS) {
+        throw Fail("SrvStatus parse fail with invalid magic, %x expected, but %x", OP_SERVERSTATUS, xmagic);
+    }
+    if (magic == OP_PACKEDPROT) {
+        dec.inflate();
     }
     userc = dec.get<uint32_t, 4>();
     filec = dec.get<uint32_t, 4>();
@@ -612,11 +624,14 @@ Data ServerList::encode() {
     return data;
 }
 
-void ServerList::parse(Data &data) {
+void ServerList::parse(Data &data, uint8_t magic) {
     Decoding dec(data);
-    uint8_t magic = dec.get<uint8_t, 1>();
-    if (magic != OP_SERVERLIST) {
-        throw Fail("ServerList parse fail with invalid magic, %x expected, but %x", OP_SERVERLIST, magic);
+    uint8_t xmagic = dec.get<uint8_t, 1>();
+    if (xmagic != OP_SERVERLIST) {
+        throw Fail("ServerList parse fail with invalid magic, %x expected, but %x", OP_SERVERLIST, xmagic);
+    }
+    if (magic == OP_PACKEDPROT) {
+        dec.inflate();
     }
     uint8_t count = dec.get<uint8_t, 1>();
     uint32_t ip;
@@ -665,11 +680,14 @@ Data ServerIndent::encode() {
     return data;
 }
 
-void ServerIndent::parse(Data &data) {
+void ServerIndent::parse(Data &data, uint8_t magic) {
     Decoding dec(data);
-    uint8_t magic = dec.get<uint8_t, 1>();
-    if (magic != OP_SERVERIDENT) {
-        throw Fail("ServerIndent parse fail with invalid magic, %x expected, but %x", OP_SERVERIDENT, magic);
+    uint8_t xmagic = dec.get<uint8_t, 1>();
+    if (xmagic != OP_SERVERIDENT) {
+        throw Fail("ServerIndent parse fail with invalid magic, %x expected, but %x", OP_SERVERIDENT, xmagic);
+    }
+    if (magic == OP_PACKEDPROT) {
+        dec.inflate();
     }
     dec.get(hash->data, hash->len);
     addr = dec.get<uint32_t, 4>();
@@ -724,11 +742,14 @@ Data SearchArgs::encode() {
     return data;
 }
 
-void SearchArgs::parse(Data &data) {
+void SearchArgs::parse(Data &data, uint8_t magic) {
     Decoding dec(data);
-    uint8_t magic = dec.get<uint8_t, 1>();
+    uint8_t xmagic = dec.get<uint8_t, 1>();
     if (magic != OP_SEARCHREQUEST) {
-        throw Fail("ServerIndent parse fail with invalid magic, %x expected, but %x", OP_SEARCHREQUEST, magic);
+        throw Fail("ServerIndent parse fail with invalid magic, %x expected, but %x", OP_SEARCHREQUEST, xmagic);
+    }
+    if (magic == OP_PACKEDPROT) {
+        dec.inflate();
     }
     search = data->sub(1, data->len - 1);
     return 0;
@@ -756,11 +777,14 @@ Data GetSource::encode() {
     return data;
 }
 
-void GetSource::parse(Data &data) {
+void GetSource::parse(Data &data, uint8_t magic) {
     Decoding dec(data);
-    uint8_t magic = dec.get<uint8_t, 1>();
-    if (magic != OP_GETSOURCES_OBFU) {
-        throw Fail("GetSource parse fail with invalid magic, %x expected, but %x", OP_GETSOURCES_OBFU, magic);
+    uint8_t xmagic = dec.get<uint8_t, 1>();
+    if (xmagic != OP_GETSOURCES_OBFU) {
+        throw Fail("GetSource parse fail with invalid magic, %x expected, but %x", OP_GETSOURCES_OBFU, xmagic);
+    }
+    if (magic == OP_PACKEDPROT) {
+        dec.inflate();
     }
     dec.get(hash->data, hash->len);
     size = dec.get<uint32_t, 4>();
@@ -788,11 +812,14 @@ Data FoundSource::encode() {
     return data;
 }
 
-void FoundSource::parse(Data &data) {
+void FoundSource::parse(Data &data, uint8_t magic) {
     Decoding dec(data);
-    uint8_t magic = dec.get<uint8_t, 1>();
-    if (magic != OP_FOUNDSOURCES_OBFU) {
-        throw Fail("FoundSource parse fail with invalid magic, %x expected, but %x", OP_FOUNDSOURCES_OBFU, magic);
+    uint8_t xmagic = dec.get<uint8_t, 1>();
+    if (xmagic != OP_FOUNDSOURCES_OBFU) {
+        throw Fail("FoundSource parse fail with invalid magic, %x expected, but %x", OP_FOUNDSOURCES_OBFU, xmagic);
+    }
+    if (magic == OP_PACKEDPROT) {
+        dec.inflate();
     }
     dec.get(hash->data, hash->len);
     uint8_t count = dec.get<uint8_t, 1>();
@@ -817,11 +844,14 @@ Data CallbackRequest::encode() {
     return data;
 }
 
-void CallbackRequest::parse(Data &data) {
+void CallbackRequest::parse(Data &data, uint8_t magic) {
     Decoding dec(data);
-    uint8_t magic = dec.get<uint8_t, 1>();
-    if (magic != OP_CALLBACKREQUEST) {
-        throw Fail("CallbackRequest parse fail with invalid magic, %x expected, but %x", OP_CALLBACKREQUEST, magic);
+    uint8_t xmagic = dec.get<uint8_t, 1>();
+    if (xmagic != OP_CALLBACKREQUEST) {
+        throw Fail("CallbackRequest parse fail with invalid magic, %x expected, but %x", OP_CALLBACKREQUEST, xmagic);
+    }
+    if (magic == OP_PACKEDPROT) {
+        dec.inflate();
     }
     cid = dec.get<uint32_t, 4>();
 }
@@ -837,11 +867,15 @@ Data CallbackRequested::encode() {
     delete enc;
     return data;
 }
-void CallbackRequested::parse(Data &data) {
+void CallbackRequested::parse(Data &data, uint8_t magic) {
     Decoding dec(data);
-    uint8_t magic = dec.get<uint8_t, 1>();
-    if (magic != OP_CALLBACKREQUESTED) {
-        throw Fail("CallbackRequested parse fail with invalid magic, %x expected, but %x", OP_CALLBACKREQUESTED, magic);
+    uint8_t xmagic = dec.get<uint8_t, 1>();
+    if (xmagic != OP_CALLBACKREQUESTED) {
+        throw Fail("CallbackRequested parse fail with invalid magic, %x expected, but %x", OP_CALLBACKREQUESTED,
+                   xmagic);
+    }
+    if (magic == OP_PACKEDPROT) {
+        dec.inflate();
     }
     first = dec.get<uint32_t, 4>();
     second = dec.get<uint16_t, 2>();
@@ -885,11 +919,14 @@ Data Hello::encode() {
     return data;
 }
 
-void Hello::parse(Data &data) {
+void Hello::parse(Data &data, uint8_t magic) {
     Decoding dec(data);
-    uint8_t magic = dec.get<uint8_t, 1>();
-    if (magic != this->magic) {
-        throw Fail("Hello parse fail with invalid magic, %x expected, but %x", OP_HELLO, magic);
+    uint8_t xmagic = dec.get<uint8_t, 1>();
+    if (xmagic != this->magic) {
+        throw Fail("Hello parse fail with invalid magic, %x expected, but %x", OP_HELLO, xmagic);
+    }
+    if (magic == OP_PACKEDPROT) {
+        dec.inflate();
     }
     hash.set(16);
     dec.get(hash->data, hash->len);
@@ -954,11 +991,14 @@ Data RequestParts::encode() {
     return data;
 }
 
-void RequestParts::parse(Data &data) {
+void RequestParts::parse(Data &data, uint8_t magic) {
     Decoding dec(data);
-    uint8_t magic = dec.get<uint8_t, 1>();
-    if (magic != OP_REQUESTPARTS) {
-        throw Fail("RequestParts parse fail with invalid magic, %x expected, but %x", OP_REQUESTPARTS, magic);
+    uint8_t xmagic = dec.get<uint8_t, 1>();
+    if (xmagic != OP_REQUESTPARTS) {
+        throw Fail("RequestParts parse fail with invalid magic, %x expected, but %x", OP_REQUESTPARTS, xmagic);
+    }
+    if (magic == OP_PACKEDPROT) {
+        dec.inflate();
     }
     dec.get(hash->data, hash->len);
     size_t plen = (data->len - dec.offset) / 4;
@@ -972,6 +1012,7 @@ void RequestParts::parse(Data &data) {
 }
 
 SendingPart::SendingPart() {}
+
 Data SendingPart::encode() {
     auto enc = new Encoding();
     enc->put((uint8_t)OP_SENDINGPART);
@@ -983,18 +1024,65 @@ Data SendingPart::encode() {
     delete enc;
     return data;
 }
-void SendingPart::parse(Data &data) {
+
+void SendingPart::parse(Data &data, uint8_t magic) {
     Decoding dec(data);
-    uint8_t magic = dec.get<uint8_t, 1>();
-    if (magic != OP_SENDINGPART) {
-        throw Fail("SendingPart parse fail with invalid magic, %x expected, but %x", OP_SENDINGPART, magic);
+    uint8_t xmagic = dec.get<uint8_t, 1>();
+    if (xmagic != OP_SENDINGPART) {
+        throw Fail("SendingPart parse fail with invalid magic, %x expected, but %x", OP_SENDINGPART, xmagic);
     }
+    if (magic == OP_PACKEDPROT) {
+        dec.inflate();
+    }
+    hash.set(16);
     dec.get(hash->data, hash->len);
     start = dec.get<uint32_t, 4>();
     end = dec.get<uint32_t, 4>();
     part.reset(new Data_(end - start));
     dec.get(part->data, part->len);
 }
+
+MagicHash::MagicHash(uint8_t magic) { this->magic = magic; }
+Data MagicHash::encode() {
+    auto enc = new Encoding();
+    enc->put((uint8_t)magic);
+    enc->put(hash->data, hash->len);
+    auto data = enc->encode();
+    delete enc;
+    return data;
+}
+void MagicHash::parse(Data &data, uint8_t magic) {
+    Decoding dec(data);
+    uint8_t xmagic = dec.get<uint8_t, 1>();
+    if (xmagic != this->magic) {
+        throw Fail("MagicHash parse fail with invalid magic, %x expected, but %x", this->magic, xmagic);
+    }
+    if (magic == OP_PACKEDPROT) {
+        dec.inflate();
+    }
+    dec.get(hash->data, hash->len);
+}
+
+HashsetAnswer::HashsetAnswer() {}
+Data HashsetAnswer::encode() { return Data(); }
+void HashsetAnswer::parse(Data &data, uint8_t magic) {
+    Decoding dec(data);
+    uint8_t xmagic = dec.get<uint8_t, 1>();
+    if (xmagic != OP_HASHSETANSWER2) {
+        throw Fail("HashsetAnswer parse fail with invalid magic, %x expected, but %x", OP_HASHSETANSWER, xmagic);
+    }
+    if (magic == OP_PACKEDPROT) {
+        dec.inflate();
+    }
+    dec.get(hash->data, hash->len);
+    uint16_t pc = dec.get<uint16_t, 2>();
+    for (size_t i = 0; i < pc; i++) {
+        Hash h(16);
+        dec.get(h->data, h->len);
+        parts.push_back(h);
+    }
+}
+
 //////////end encoding//////////
 }
 }

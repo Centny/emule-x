@@ -35,6 +35,10 @@ class Evn_ {
     virtual void OnLogined(ED2K_ &ed2k, uint64_t cid, uint32_t lid) = 0;
     virtual void OnFoundFile(ED2K_ &ed2k, uint64_t cid, FileList &fs) = 0;
     virtual void OnFoundSource(ED2K_ &ed2k, uint64_t cid, FoundSource &fs) = 0;
+    virtual void OnAnswered(ED2K_ &ed2k, uint64_t cid) = 0;
+    virtual void OnUpAccepted(ED2K_ &ed2k, uint64_t cid) = 0;
+    virtual void OnSending(ED2K_ &ed2k, uint64_t cid, SendingPart &part) = 0;
+    virtual void OnHashset(ED2K_ &ed2k, uint64_t cid, HashsetAnswer &hs) = 0;
 };
 typedef boost::shared_ptr<Evn_> Evn;
 typedef std::pair<uint16_t, uint16_t> Port;
@@ -48,6 +52,7 @@ class ED2K_ : public CmdH_, public ConH_, public boost::enable_shared_from_this<
         SrvStatus status;
         ServerIndent sid;
         uint16_t from;
+        uint32_t r_lid;
     };
     asio::io_service &ios;
     char cbuf[102400];
@@ -55,6 +60,7 @@ class ED2K_ : public CmdH_, public ConH_, public boost::enable_shared_from_this<
     Hash hash;
     Data name;
     bool logined;
+    int showlog = 0;
     //
     ModH mod;
     Evn H;
@@ -91,7 +97,10 @@ class ED2K_ : public CmdH_, public ConH_, public boost::enable_shared_from_this<
     virtual void listSource(uint64_t cid, Hash &hash, uint64_t size, boost::system::error_code &ec);
     virtual void callback(uint64_t cid, uint32_t lid, boost::system::error_code &ec);
     virtual void hello(uint64_t cid, uint64_t from, boost::system::error_code &ec);
-    //    virtual void request(uint64_t cid,uint64_t from,boost::system::error_code &ec);
+    virtual void uprequest(uint64_t cid, Hash &hash, boost::system::error_code &ec);
+    virtual void request(uint64_t cid, Hash &hash, std::vector<FilePart> &parts, boost::system::error_code &ec);
+    virtual void request(uint64_t cid, Hash &hash, FilePart &part, boost::system::error_code &ec);
+    virtual void hashset(uint64_t cid, Hash &hash, boost::system::error_code &ec);
 };
 
 //////////end ed2k//////////

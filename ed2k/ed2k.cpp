@@ -106,16 +106,19 @@ void ED2K_::OnClose(TCP s, const boost::system::error_code &ec) { this->remove(s
 
 int ED2K_::OnCmd(Cmd c) {
     int code = 0;
+    if (showlog > 1) {
+        c->data->print();
+    }
     switch ((uint8_t)c->charAt(0)) {
         case OP_SERVERMESSAGE: {
             SrvMessage smsg;
-            smsg.parse(c->data);
+            smsg.parse(c->data, c->header->data[0]);
             V_LOG_I("ED2K receive server message:%s", smsg.msg->data);
             return code;
         }
         case OP_IDCHANGE: {
             auto id = esrv[c->Id()].id;
-            id.parse(c->data);
+            id.parse(c->data, c->header->data[0]);
             V_LOG_I("ED2K change id to %ld", id.id);
             listServer(c->Id(), ecode);
             H->OnLogined(*this, c->Id(), id.id);
@@ -123,19 +126,19 @@ int ED2K_::OnCmd(Cmd c) {
         }
         case OP_SERVERSTATUS: {
             auto ss = esrv[c->Id()].status;
-            ss.parse(c->data);
+            ss.parse(c->data, c->header->data[0]);
             V_LOG_I("ED2K change server status to user(%ld),file(%ld)", ss.userc, ss.filec);
             return code;
         }
         case OP_SERVERLIST: {
             ServerList srvs;
-            srvs.parse(c->data);
+            srvs.parse(c->data, c->header->data[0]);
             V_LOG_I("ED2K parse server list with %ld server found", srvs.srvs.size());
             return code;
         }
         case OP_SERVERIDENT: {
             auto sid = esrv[c->Id()].sid;
-            sid.parse(c->data);
+            sid.parse(c->data, c->header->data[0]);
             V_LOG_I("ED2K parse server identification with (%s)", sid.tostr().c_str());
             return code;
         }
@@ -148,7 +151,7 @@ int ED2K_::OnCmd(Cmd c) {
         }
         case OP_FOUNDSOURCES_OBFU: {
             FoundSource found;
-            found.parse(c->data);
+            found.parse(c->data, c->header->data[0]);
             V_LOG_I("ED2K parse found source for hash(%s) with %d server", found.hash.tostring().c_str(),
                     found.srvs.size());
             H->OnFoundSource(*this, c->Id(), found);
@@ -162,15 +165,32 @@ int ED2K_::OnCmd(Cmd c) {
             return code;
         case OP_CALLBACKREQUESTED: {
             CallbackRequested crs;
-            crs.parse(c->data);
+            crs.parse(c->data, c->header->data[0]);
             V_LOG_I("ED2K parse callback requested to address(%s)", addr_cs(crs).c_str());
             return code;
         }
         case OP_HELLOANSWER: {
-            c->data->print();
             Hello hl(OP_HELLOANSWER);
-            hl.parse(c->data);
+            hl.parse(c->data, c->header->data[0]);
+            esrv[c->Id()].r_lid = hl.cid;
             V_LOG_I("ED2K parse hello answer by (%s)", hl.tostr().c_str());
+            H->OnAnswered(*this, c->Id());
+            return code;
+        }
+        case OP_ACCEPTUPLOADREQ: {
+            H->OnUpAccepted(*this, c->Id());
+            return code;
+        }
+        case OP_SENDINGPART: {
+            SendingPart part;
+            part.parse(c->data, c->header->data[0]);
+            H->OnSending(*this, c->Id(), part);
+            return code;
+        }
+        case OP_HASHSETANSWER: {
+            HashsetAnswer hs;
+            hs.parse(c->data, c->header->data[0]);
+            H->OnHashset(*this, c->Id(), hs);
             return code;
         }
     }
@@ -253,6 +273,48 @@ void ED2K_::hello(uint64_t cid, uint64_t from, boost::system::error_code &ec) {
     }
 }
 
+void ED2K_::uprequest(uint64_t cid, Hash &hash, boost::system::error_code &ec) {
+    UploadRequest args;
+    args.hash = hash;
+    write(cid, args.encode(), ec);
+    if (ec) {
+        V_LOG_W("ED2K send upload by hash(%s) to %s fail with code(%d)", hash.tostring().c_str(),
+                addr_cs(esrv[cid].addr).c_str(), ec.value());
+    } else {
+        V_LOG_D("ED2K send upload by hash(%s) to %s success", hash.tostring().c_str(), addr_cs(esrv[cid].addr).c_str(),
+                cid);
+    }
+}
+void ED2K_::request(uint64_t cid, Hash &hash, std::vector<FilePart> &parts, boost::system::error_code &ec) {
+    RequestParts args;
+    args.hash = hash;
+    args.parts = parts;
+    args.encode()->print();
+    write(cid, args.encode(), ec);
+    if (ec) {
+        V_LOG_W("ED2K send part request to %s fail with code(%d)", addr_cs(esrv[cid].addr).c_str(), ec.value());
+    } else {
+        V_LOG_D("ED2K send part request to %s success", addr_cs(esrv[cid].addr).c_str(), cid);
+    }
+}
+void ED2K_::request(uint64_t cid, Hash &hash, FilePart &part, boost::system::error_code &ec) {
+    std::vector<FilePart> parts;
+    parts.push_back(part);
+    request(cid, hash, parts, ec);
+}
+
+void ED2K_::hashset(uint64_t cid, Hash &hash, boost::system::error_code &ec) {
+    HashsetRequest args;
+    args.hash = hash;
+    write(cid, args.encode(), ec);
+    if (ec) {
+        V_LOG_W("ED2K send hashset request by hash(%s) to %s fail with code(%d)", hash.tostring().c_str(),
+                addr_cs(esrv[cid].addr).c_str(), ec.value());
+    } else {
+        V_LOG_D("ED2K send hashset request by hash(%s) to %s success", hash.tostring().c_str(),
+                addr_cs(esrv[cid].addr).c_str(), cid);
+    }
+}
 //////////end ed2k//////////
 }
 }

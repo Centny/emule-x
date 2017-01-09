@@ -76,6 +76,7 @@
                             "-lboost_utils",
                             "-lemule_x",
                             "-lz",
+                            "-lcrypto",
                             "-Wl,-rpath,$(PROJECT_DIR)/../boost-utils/build/Default",
                             "-Wl,-rpath,."
                         ],
@@ -112,6 +113,7 @@
                             "-lboost_utils",
                             "-lemule_x",
                             "-lz",
+                            "-lcrypto",
                             "-Wl,-rpath,$(PROJECT_DIR)/../boost-utils/build/Default",
                             "-Wl,-rpath,."
                         ],
