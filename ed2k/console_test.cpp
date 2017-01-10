@@ -26,18 +26,18 @@ class Ed2kTestH : public Evn_ {
     uint64_t os0, os0_, os1, os1_, os2, os2_;
 
    public:
-    void OnLogined(ED2K_& ed2k, uint64_t cid, uint32_t lid) { ed2k.search(cid, "waving", ecode); }
+    void OnLogined(ED2K_& ed2k, uint64_t cid, uint32_t lid) { ed2k.search(cid, "Office", ecode); }
     void OnFoundFile(ED2K_& ed2k, uint64_t cid, FileList& fs) {
         printf("->%s->%s->%llu\n", fs.fs[0]->hash.tostring().c_str(), fs.fs[0]->name->data, fs.fs[0]->size);
-        //        ed2k.listSource(cid, fs.fs[0]->hash, fs.fs[0]->size, ecode);
-        //        entry = fs.fs[0];
+        ed2k.listSource(cid, fs.fs[0]->hash, fs.fs[0]->size, ecode);
+        entry = fs.fs[0];
         //        xfs.open(entry->name->data);
-        ed2k.callback(cid, 6, ecode);
+        //        ed2k.callback(cid, 6, ecode);
     }
     void OnFoundSource(ED2K_& ed2k, uint64_t cid, FoundSource& fs) {
         printf("found->%s\n", addr_cs(fs.srvs[0]).c_str());
         // ed2k.connect(ed2k_c2c, "127.0.0.1", 20001, ecode, 0, 0, cid);
-        ed2k.connect(ed2k_c2c, fs.srvs[0].first, fs.srvs[0].second, ecode, 0, 0, cid);
+        ed2k.connect(ed2k_c2c, fs.srvs[1].first, fs.srvs[1].second, ecode, 0, 0, cid);
     }
     void OnAnswered(ED2K_& ed2k, uint64_t cid) {
         bsize = entry->size / 3;
@@ -45,7 +45,8 @@ class Ed2kTestH : public Evn_ {
         os1 = bsize + 3, os1_ = 2 * bsize + 3;
         os2 = 2 * bsize + 3, os2_ = entry->size;
         //        ed2k.uprequest(cid, entry->hash, ecode);
-        ed2k.hashset(cid, entry->hash, ecode);
+        //        ed2k.hashset(cid, entry->hash, ecode);
+        //        ed2k.
     }
     void OnUpAccepted(ED2K_& ed2k, uint64_t cid) {
         printf("accepted->\n");
@@ -78,7 +79,7 @@ class Ed2kTestH : public Evn_ {
             }
         }
         if (parts.size() == 3) {
-            ed2k.request(cid, entry->hash, parts, ecode);
+            ed2k.rfilepart(cid, entry->hash, parts, ecode);
         } else {
             xfs.close();
         }
@@ -93,7 +94,18 @@ class Ed2kTestH : public Evn_ {
             OnUpAccepted(ed2k, cid);
         }
     }
-    void OnHashset(ED2K_& ed2k, uint64_t cid, HashsetAnswer& hs) {}
+    void OnHashsetAnswer(ED2K_ &ed2k, uint64_t cid, HashsetAnswer &hs){
+        
+    }
+    void OnFidAnswer(ED2K_ &ed2k, uint64_t cid, FidAnswer &fid){
+        
+    }
+    void OnFileStatusAnswer(ED2K_ &ed2k, uint64_t cid, FileStatusAnswer &fid){
+        
+    }
+    void OnFileStatusAnswer(ED2K_ &ed2k, uint64_t cid, FileStatus &fid){
+        
+    }
 };
 std::string valxx() { return std::string("abc"); }
 const char* valcc(const char* v) { return std::string(v).c_str(); }

@@ -419,6 +419,22 @@ class HashsetRequest : public MagicHash {
     HashsetRequest() : MagicHash(OP_HASHSETREQUEST) {}
 };
 
+class FidRequest : public MagicHash {
+   public:
+    FidRequest() : MagicHash(OP_SETREQFILEID) {}
+};
+
+class FidAnswer {
+   public:
+    Hash hash;
+    Data name;
+
+   public:
+    FidAnswer();
+    virtual Data encode();
+    virtual void parse(Data &data, uint8_t magic = OP_EDONKEYPROT);
+};
+
 class HashsetAnswer {
    public:
     Hash hash;
@@ -429,6 +445,35 @@ class HashsetAnswer {
     virtual Data encode();
     virtual void parse(Data &data, uint8_t magic = OP_EDONKEYPROT);
 };
+
+class FileStatus {
+   public:
+    uint8_t magic;
+    Hash hash;
+    std::vector<uint8_t> parts;
+    uint16_t source;
+
+   public:
+    FileStatus(uint8_t magic);
+    virtual Data encode();
+    virtual void parse(Data &data, uint8_t magic = OP_EDONKEYPROT);
+};
+
+class FileStatusRequest : public FileStatus {
+   public:
+    FileStatusRequest() : FileStatus(OP_REQUESTFILENAME) {}
+};
+
+class FileStatusAnswer : public FileStatus {
+   public:
+    FileStatusAnswer() : FileStatus(OP_REQFILENAMEANSWER) {}
+};
+    
+    class FileNotAnswer : public FileStatus {
+    public:
+        FileNotAnswer() : FileStatus(OP_FILEREQANSNOFIL) {}
+    };
+    
 //////////end encoding//////////
 }
 }

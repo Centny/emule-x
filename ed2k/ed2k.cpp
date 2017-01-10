@@ -80,7 +80,7 @@ bool ED2K_::OnConn(TCP s, const boost::system::error_code &ec) {
         this->remove(s);
         return;
     }
-    V_LOG_D("ED2K tcp(%s) connected by local %s", con_t_cs((con_t)s->tag).c_str(), s->address().c_str());
+    V_LOG_D("ED2K tcp(%s) connected to by %s", con_t_cs((con_t)s->tag).c_str(), s->address().c_str());
     switch (s->tag) {
         case ed2k_c2s: {
             //        srv = BuildAcceptor(ios, con->local, SHARED_TO(CmdH_), SHARED_TO(ConH_));
@@ -190,7 +190,25 @@ int ED2K_::OnCmd(Cmd c) {
         case OP_HASHSETANSWER: {
             HashsetAnswer hs;
             hs.parse(c->data, c->header->data[0]);
-            H->OnHashset(*this, c->Id(), hs);
+            H->OnHashsetAnswer(*this, c->Id(), hs);
+            return code;
+        }
+        case OP_REQFILENAMEANSWER:{
+            FidAnswer fid;
+            fid.parse(c->data,c->header->data[0]);
+            H->OnFidAnswer(*this, c->Id(), fid);
+            return code;
+        }
+        case OP_FILESTATUS:{
+            FileStatusAnswer fa;
+            fa.parse(c->data,c->header->data[0]);
+            H->OnFileStatusAnswer(*this, c->Id(), fa);
+            return code;
+        }
+        case OP_FILEREQANSNOFIL:{
+            FileNotAnswer fa;
+            fa.parse(c->data,c->header->data[0]);
+            H->OnFileStatusAnswer(*this, c->Id(), fa);
             return code;
         }
     }
@@ -285,11 +303,10 @@ void ED2K_::uprequest(uint64_t cid, Hash &hash, boost::system::error_code &ec) {
                 cid);
     }
 }
-void ED2K_::request(uint64_t cid, Hash &hash, std::vector<FilePart> &parts, boost::system::error_code &ec) {
+void ED2K_::rfilepart(uint64_t cid, Hash &hash, std::vector<FilePart> &parts, boost::system::error_code &ec) {
     RequestParts args;
     args.hash = hash;
     args.parts = parts;
-    args.encode()->print();
     write(cid, args.encode(), ec);
     if (ec) {
         V_LOG_W("ED2K send part request to %s fail with code(%d)", addr_cs(esrv[cid].addr).c_str(), ec.value());
@@ -297,10 +314,34 @@ void ED2K_::request(uint64_t cid, Hash &hash, std::vector<FilePart> &parts, boos
         V_LOG_D("ED2K send part request to %s success", addr_cs(esrv[cid].addr).c_str(), cid);
     }
 }
-void ED2K_::request(uint64_t cid, Hash &hash, FilePart &part, boost::system::error_code &ec) {
+void ED2K_::rfilepart(uint64_t cid, Hash &hash, FilePart &part, boost::system::error_code &ec) {
     std::vector<FilePart> parts;
     parts.push_back(part);
-    request(cid, hash, parts, ec);
+    rfilepart(cid, hash, parts, ec);
+}
+    
+void ED2K_::rfid(uint64_t cid, Hash &hash, boost::system::error_code &ec){
+    FidRequest args;
+    args.hash = hash;
+    write(cid, args.encode(), ec);
+    if (ec) {
+        V_LOG_W("ED2K send request fid by hash(%s) to %s fail with code(%d)",hash.tostring().c_str(), addr_cs(esrv[cid].addr).c_str(), ec.value());
+    } else {
+        V_LOG_D("ED2K send request fid by hash(%s) to %s success",hash.tostring().c_str(), addr_cs(esrv[cid].addr).c_str(), cid);
+    }
+}
+    
+void ED2K_::rfilestatus(uint64_t cid, Hash &hash, std::vector<uint8_t>& parts,uint16_t source, boost::system::error_code &ec){
+    FileStatusRequest args;
+    args.hash=hash;
+    args.parts=parts;
+    args.source=source;
+    write(cid, args.encode(), ec);
+    if (ec) {
+        V_LOG_W("ED2K send request file status by hash(%s) to %s fail with code(%d)",hash.tostring().c_str(), addr_cs(esrv[cid].addr).c_str(), ec.value());
+    } else {
+        V_LOG_D("ED2K send request file status by hash(%s) to %s success",hash.tostring().c_str(), addr_cs(esrv[cid].addr).c_str(), cid);
+    }
 }
 
 void ED2K_::hashset(uint64_t cid, Hash &hash, boost::system::error_code &ec) {

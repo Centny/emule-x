@@ -1063,6 +1063,22 @@ void MagicHash::parse(Data &data, uint8_t magic) {
     dec.get(hash->data, hash->len);
 }
 
+FidAnswer::FidAnswer() {}
+    Data FidAnswer::encode() {return Data();}
+void FidAnswer::parse(Data &data, uint8_t magic) {
+    Decoding dec(data);
+    uint8_t xmagic = dec.get<uint8_t, 1>();
+    if (xmagic != OP_REQFILENAMEANSWER) {
+        throw Fail("HashsetAnswer parse fail with invalid magic, %x expected, but %x", OP_REQFILENAMEANSWER, xmagic);
+    }
+    if (magic == OP_PACKEDPROT) {
+        dec.inflate();
+    }
+    dec.get(hash->data, hash->len);
+    name.reset(new Data_(dec.get<uint16_t, 2>()));
+    dec.get(name->data, name->len);
+}
+
 HashsetAnswer::HashsetAnswer() {}
 Data HashsetAnswer::encode() { return Data(); }
 void HashsetAnswer::parse(Data &data, uint8_t magic) {
@@ -1080,6 +1096,39 @@ void HashsetAnswer::parse(Data &data, uint8_t magic) {
         Hash h(16);
         dec.get(h->data, h->len);
         parts.push_back(h);
+    }
+}
+
+FileStatus::FileStatus(uint8_t magic) {}
+Data FileStatus::encode() {
+    auto enc = new Encoding();
+    enc->put((uint8_t)magic);
+    enc->put(hash->data, hash->len);
+    enc->put((uint16_t)parts.size());
+    BOOST_FOREACH (uint8_t &part, parts) { enc->put(part); }
+    if (source) {
+        enc->put(source);
+    }
+    auto data = enc->encode();
+    delete enc;
+    return data;
+}
+void FileStatus::parse(Data &data, uint8_t magic) {
+    Decoding dec(data);
+    uint8_t xmagic = dec.get<uint8_t, 1>();
+    if (xmagic != OP_FILESTATUS) {
+        throw Fail("FileStatus parse fail with invalid magic, %x expected, but %x", OP_FILESTATUS, xmagic);
+    }
+    if (magic == OP_FILESTATUS) {
+        dec.inflate();
+    }
+    dec.get(hash->data, hash->len);
+    uint16_t pc = dec.get<uint16_t, 2>();
+    for (size_t i = 0; i < pc; i++) {
+        parts.push_back(dec.get<uint8_t, 1>());
+    }
+    if (data->len - dec.offset == 2) {
+        source = dec.get<uint16_t, 2>();
     }
 }
 
