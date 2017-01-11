@@ -1,13 +1,13 @@
 //
-//  encoding.hpp
+//  ed2k_protocol.hpp
 //  ed2k
 //
 //  Created by Centny on 1/1/17.
 //
 //
 
-#ifndef encoding_hpp
-#define encoding_hpp
+#ifndef ed2k_protocol_hpp
+#define ed2k_protocol_hpp
 #include <stdio.h>
 #include <boost-utils/boost-utils.hpp>
 #include <boost/asio/streambuf.hpp>
@@ -18,11 +18,14 @@
 #include <map>
 #include <sstream>
 #include <string>
-
+#include "../encoding/encoding.hpp"
+#include "../fs/fs.hpp"
 namespace emulex {
 namespace protocol {
 using namespace boost;
 using namespace butils::netw;
+using namespace emulex::fs;
+using namespace emulex::encoding;
 //
 #include "opcodes.h"
 //    const uint8_t PROTOCOL_V0 = 0xE3;
@@ -38,101 +41,12 @@ using namespace butils::netw;
 // const uint8_t OP_SERVERIDENT = 0x41;
 // const uint8_t OP_SEARCHREQUEST = 0x16;
 
-const uint8_t STR_TAG = 0x2;
-const uint8_t INT_TAG = 0x3;
-const uint8_t FLOAT_TAG = 0x4;
 //
 #define S_USR_NAME_L 128
 #define S_DESC_L 256
 
-/*
- the ed2k hash
- */
-class Hash : public Data {
-   public:
-    Hash();
-    Hash(size_t len);
-    Hash(const char *buf, size_t len);
-    virtual ~Hash();
-    virtual void set(size_t len);
-    virtual void set(const char *buf, size_t len);
-    virtual bool operator==(const Hash &h) const;
-    virtual bool operator<(const Hash &h) const;
-    virtual std::string tostring();
-};
-Hash BuildHash(size_t len = 16);
-Hash BuildHash(const char *buf, size_t len = 16);
-std::string hash_tos(const char *hash);
 //
 ModH BuildMod();
-/*
- the ed2k base encoding for int/string/tag
- */
-class Encoding {
-   public:
-    Encoding();
-    virtual void reset();
-    virtual size_t size();
-    boost::asio::streambuf &buf();
-    virtual Data encode();
-    Encoding &put(Data &data);
-    Encoding &put(const char *val, size_t len);
-    Encoding &put(uint8_t val, bool big = false);
-    Encoding &put(uint16_t val, bool big = false);
-    Encoding &put(uint32_t val, bool big = false);
-    Encoding &put(uint64_t val, bool big = false);
-    //    Encoding& put(float val);
-    Encoding &putv(const char *name, const char *val);
-    Encoding &putv(Data &name, Data &val);
-    Encoding &putv(uint8_t name, const char *val);
-    Encoding &putv(uint8_t name, Data &val);
-    Encoding &putv(const char *name, Data &val);
-    Encoding &putv(const char *name, uint32_t val);
-    Encoding &putv(uint8_t name, uint32_t val);
-    //  Encoding &put(const char *name, float val);
-    //  Encoding &put(uint8_t name, float val);
-    Encoding &putv(const char *name, uint64_t val);
-    Encoding &putv(uint8_t name, uint64_t val);
-    virtual void print(char *buf = 0);
-
-   protected:
-    boost::asio::streambuf buf_;
-};
-
-/*
- the ed2k login frame.
- */
-class Decoding {
-   public:
-    Decoding(Data &data);
-    virtual ~Decoding();
-    template <typename T, std::size_t n_bits>
-    T get(bool big = false) {
-        if (data->len - offset < n_bits) {
-            throw Fail("decode fail with not enough data, expect %ld, but %ld", n_bits, data->len - offset);
-        }
-        T val;
-        if (big) {
-            val = boost::endian::detail::load_big_endian<T, n_bits>(data->data + offset);
-        } else {
-            val = boost::endian::detail::load_little_endian<T, n_bits>(data->data + offset);
-        }
-        offset += n_bits;
-        return val;
-    }
-    void get(char *name, size_t len);
-    void get(char *name, uint16_t &nlen);
-    void get(char *name, uint16_t &nlen, char *value, uint16_t &vlen);
-    void get(char *name, uint16_t &nlen, uint32_t &vlen);
-    Data getstring(size_t len = 0);
-    Data getdata(size_t len, bool iss = false);
-
-    void inflate();
-
-   public:
-    Data data;
-    size_t offset;
-};
 
 /*
  the ed2k login frame
@@ -468,14 +382,14 @@ class FileStatusAnswer : public FileStatus {
    public:
     FileStatusAnswer() : FileStatus(OP_REQFILENAMEANSWER) {}
 };
-    
-    class FileNotAnswer : public FileStatus {
-    public:
-        FileNotAnswer() : FileStatus(OP_FILEREQANSNOFIL) {}
-    };
-    
-//////////end encoding//////////
+
+class FileNotAnswer : public FileStatus {
+   public:
+    FileNotAnswer() : FileStatus(OP_FILEREQANSNOFIL) {}
+};
+
+//////////end protocol//////////
 }
 }
 
-#endif /* encoding_hpp */
+#endif /* ed2k_protocol */

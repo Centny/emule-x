@@ -6,217 +6,13 @@
 //
 //
 #include <boost/test/included/unit_test.hpp>
-#include "encoding.hpp"
+#include "ed2k_protocol.hpp"
 
 using namespace boost;
 using namespace emulex::protocol;
 using namespace boost::endian;
 
-BOOST_AUTO_TEST_SUITE(Encoding)  // name of the test suite is stringtest
-
-BOOST_AUTO_TEST_CASE(TestHash) {
-    char data[] = {
-        0x4b, 0x7a, 0x86, 0x00, 0x28, 0x14, 0x76, 0x60, 0x2e, 0x9c, 0x71, 0x11, 0xb2, 0x28, 0x40, 0xfd,
-    };
-    char data2[] = {
-        0x4c, 0x7a, 0x86, 0x00, 0x28, 0x14, 0x76, 0x60, 0x2e, 0x9c, 0x71, 0x11, 0xb2, 0x28, 0x40, 0xfd,
-    };
-    char data3[] = {
-        0x4c, 0x7a, 0x86, 0x00, 0x28, 0x14, 0x76, 0x60, 0x2e, 0x9c, 0x71, 0x11, 0xb2,
-    };
-    Hash h1 = BuildHash(data, 16);
-    Hash h2 = BuildHash(data, 16);
-    Hash h3 = BuildHash(data2, 16);
-    Hash h4 = BuildHash(data3, 13);
-    BOOST_CHECK_EQUAL(h1 == h2, true);
-    BOOST_CHECK_EQUAL(h1.tostring() == h2.tostring(), true);
-    BOOST_CHECK_EQUAL(h2 == h3, false);
-    BOOST_CHECK_EQUAL(h3 == h4, false);
-    h2.reset();
-    BOOST_CHECK_EQUAL(h1 == h2, false);
-    h1.reset();
-    BOOST_CHECK_EQUAL(h1 == h2, false);
-    Hash h5 = BuildHash(16);
-    BOOST_CHECK_EQUAL(h1 == h5, false);
-    std::list<Hash> hs;
-    {
-        hs.push_back(BuildHash(data, 16));
-        hs.push_back(BuildHash(data, 16));
-    }
-    hs.clear();
-}
-
-BOOST_AUTO_TEST_CASE(TestHashFree) {
-    char data[] = {
-        0x4b, 0x7a, 0x86, 0x00, 0x28, 0x14, 0x76, 0x60, 0x2e, 0x9c, 0x71, 0x11, 0xb2, 0x28, 0x40, 0xfd,
-    };
-    char data2[] = {
-        0x4c, 0x7a, 0x86, 0x00, 0x28, 0x14, 0x76, 0x60, 0x2e, 0x9c, 0x71, 0x11, 0xb2, 0x28, 0x40, 0xfd,
-    };
-    std::list<Hash> hs;
-    {
-        hs.push_back(BuildHash(data, 16));
-        hs.push_back(BuildHash(data2, 16));
-    }
-    {
-        Hash h1 = hs.front();
-        Hash h2 = hs.back();
-        BOOST_CHECK_EQUAL(h1 == h2, false);
-        BOOST_CHECK_EQUAL(h1.tostring() == h2.tostring(), false);
-    }
-    hs.clear();
-}
-
-BOOST_AUTO_TEST_CASE(TestHashMap) {
-    char data[] = {
-        0x4b, 0x7a, 0x86, 0x00, 0x28, 0x14, 0x76, 0x60, 0x2e, 0x9c, 0x71, 0x11, 0xb2, 0x28, 0x40, 0xfd,
-    };
-    char data2[] = {
-        0x4c, 0x7a, 0x86, 0x00, 0x28, 0x14, 0x76, 0x60, 0x2e, 0x9c, 0x71, 0x11, 0xb2, 0x28, 0x40, 0xfd,
-    };
-    char data3[] = {
-        0x4c, 0x7a, 0x86, 0x00, 0x28, 0x14, 0x76, 0x60, 0x2e, 0x9c, 0x71, 0x11, 0xb2,
-    };
-    std::map<Hash, int> hs;
-    {
-        Hash h1 = BuildHash(data, 16);
-        Hash h2 = BuildHash(data, 16);
-        Hash h3 = BuildHash(data2, 16);
-        Hash h4 = BuildHash(data3, 13);
-        hs[h1] = 1;
-        hs[h1] = 2;
-        printf("size-%lu\n", hs.size());
-        BOOST_CHECK_EQUAL(hs.size(), 1);
-        hs[h2] = 1;
-        printf("size-%lu\n", hs.size());
-        BOOST_CHECK_EQUAL(hs.size(), 1);
-        hs[h3] = 1;
-        printf("size-%lu\n", hs.size());
-        BOOST_CHECK_EQUAL(hs.size(), 2);
-        hs[h4] = 1;
-        printf("size-%lu\n", hs.size());
-        BOOST_CHECK_EQUAL(hs.size(), 3);
-        //
-        Hash h5 = BuildHash(data, 16);
-        Hash h6 = BuildHash(data, 16);
-        BOOST_CHECK_EQUAL(h5 < h6, false);
-        h6.reset();
-        BOOST_CHECK_EQUAL(h5 < h6, true);
-        h5.reset();
-        BOOST_CHECK_EQUAL(h5 < h6, true);
-    }
-    hs.clear();
-}
-
-BOOST_AUTO_TEST_CASE(TestHax) {
-    std::map<std::string, int> hs;
-    {
-        hs[std::string("a")] = 1;
-        hs[std::string("b")] = 2;
-        printf("size-%lu\n", hs.size());
-        BOOST_CHECK_EQUAL(hs.size(), 2);
-        hs[std::string("a")] = 3;
-        hs[std::string("b")] = 4;
-        printf("size-%lu\n", hs.size());
-        BOOST_CHECK_EQUAL(hs.size(), 2);
-    }
-    hs.clear();
-}
-
-BOOST_AUTO_TEST_CASE(TesEncoding) {
-    emulex::protocol::Encoding enc;
-    //
-    enc.reset();
-    enc.put("abc", 3);
-    enc.print();
-    BOOST_CHECK_EQUAL(enc.size(), 3);
-    BOOST_CHECK_EQUAL((*enc.encode())[0], 'a');
-    BOOST_CHECK_EQUAL((*enc.encode())[1], 'b');
-    BOOST_CHECK_EQUAL((*enc.encode())[2], 'c');
-    //
-    enc.reset();
-    enc.put((uint8_t)1);
-    enc.print();
-    BOOST_CHECK_EQUAL(enc.size(), 1);
-    BOOST_CHECK_EQUAL((*enc.encode())[0], 1);
-    //
-    enc.reset();
-    enc.put((uint16_t)1);
-    enc.print();
-    BOOST_CHECK_EQUAL(enc.size(), 2);
-    BOOST_CHECK_EQUAL((*enc.encode())[0], 1);
-    //
-    enc.reset();
-    enc.put((uint16_t)2);
-    enc.print();
-    BOOST_CHECK_EQUAL(enc.size(), 2);
-    BOOST_CHECK_EQUAL((*enc.encode())[0], 2);
-    //
-    enc.reset();
-    enc.put((uint32_t)2);
-    enc.print();
-    BOOST_CHECK_EQUAL(enc.size(), 4);
-    BOOST_CHECK_EQUAL((*enc.encode())[0], 2);
-    //
-    enc.reset();
-    enc.put((uint64_t)2);
-    BOOST_CHECK_EQUAL(enc.size(), 8);
-    BOOST_CHECK_EQUAL((*enc.encode())[0], 2);
-    //
-    enc.reset();
-    enc.putv("a", "b");
-    enc.print();
-    BOOST_CHECK_EQUAL(enc.size(), 7);
-    BOOST_CHECK_EQUAL((*enc.encode())[0], STR_TAG);
-    BOOST_CHECK_EQUAL((*enc.encode())[1], 1);
-    BOOST_CHECK_EQUAL((*enc.encode())[3], 'a');
-    //
-    enc.reset();
-    enc.putv(0x01, "b");
-    enc.print();
-    BOOST_CHECK_EQUAL(enc.size(), 7);
-    BOOST_CHECK_EQUAL((*enc.encode())[0], STR_TAG);
-    BOOST_CHECK_EQUAL((*enc.encode())[1], 1);
-    BOOST_CHECK_EQUAL((*enc.encode())[3], 0x01);
-    //
-    enc.reset();
-    enc.putv("a", (uint32_t)100);
-    enc.print();
-    BOOST_CHECK_EQUAL(enc.size(), 8);
-    BOOST_CHECK_EQUAL((*enc.encode())[0], INT_TAG);
-    BOOST_CHECK_EQUAL((*enc.encode())[1], 1);
-    BOOST_CHECK_EQUAL((*enc.encode())[3], 'a');
-    BOOST_CHECK_EQUAL((*enc.encode())[4], 100);
-    //
-    enc.reset();
-    enc.putv(0x01, (uint32_t)100);
-    enc.print();
-    BOOST_CHECK_EQUAL(enc.size(), 8);
-    BOOST_CHECK_EQUAL((*enc.encode())[0], INT_TAG);
-    BOOST_CHECK_EQUAL((*enc.encode())[1], 1);
-    BOOST_CHECK_EQUAL((*enc.encode())[3], 0x01);
-    BOOST_CHECK_EQUAL((*enc.encode())[4], 100);
-    //
-    enc.reset();
-    enc.putv("a", (uint64_t)100);
-    enc.print();
-    BOOST_CHECK_EQUAL(enc.size(), 12);
-    BOOST_CHECK_EQUAL((*enc.encode())[0], INT_TAG);
-    BOOST_CHECK_EQUAL((*enc.encode())[1], 1);
-    BOOST_CHECK_EQUAL((*enc.encode())[3], 'a');
-    BOOST_CHECK_EQUAL((*enc.encode())[4], 100);
-    //
-    enc.reset();
-    enc.putv(0x01, (uint64_t)100);
-    enc.print();
-    BOOST_CHECK_EQUAL(enc.size(), 12);
-    BOOST_CHECK_EQUAL((*enc.encode())[0], INT_TAG);
-    BOOST_CHECK_EQUAL((*enc.encode())[1], 1);
-    BOOST_CHECK_EQUAL((*enc.encode())[3], 0x01);
-    BOOST_CHECK_EQUAL((*enc.encode())[4], 100);
-    //
-    printf("%s\n", "test encoding done...");
-}
+BOOST_AUTO_TEST_SUITE(ed2k_protocol)  // name of the test suite is stringtest
 
 BOOST_AUTO_TEST_CASE(TesLogin) {
     Hash hash(16);
@@ -317,12 +113,15 @@ BOOST_AUTO_TEST_CASE(TesSrvMessage) {
 //}
 
 BOOST_AUTO_TEST_CASE(TestSearchArgs) {
+    //    try {
     SearchArgs args1("abc");
-    //    args1.print();
-    char data[] = {0x16, 0x1, 0x3, 0x0, 0x61, 0x62, 0x63};
-    auto xdata = BuildData(data, 59);
+    args1.encode()->print();
+    char data[] = {0x16, 0x3, 0x0, 0x61, 0x62, 0x63};
+    auto xdata = BuildData(data, 6);
     SearchArgs args2;
     args2.parse(xdata);
+    //    } catch (...) {
+    //    }
 }
 
 // BOOST_AUTO_TEST_CASE(TestFileList) {

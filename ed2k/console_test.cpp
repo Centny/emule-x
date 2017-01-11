@@ -94,18 +94,10 @@ class Ed2kTestH : public Evn_ {
             OnUpAccepted(ed2k, cid);
         }
     }
-    void OnHashsetAnswer(ED2K_ &ed2k, uint64_t cid, HashsetAnswer &hs){
-        
-    }
-    void OnFidAnswer(ED2K_ &ed2k, uint64_t cid, FidAnswer &fid){
-        
-    }
-    void OnFileStatusAnswer(ED2K_ &ed2k, uint64_t cid, FileStatusAnswer &fid){
-        
-    }
-    void OnFileStatusAnswer(ED2K_ &ed2k, uint64_t cid, FileStatus &fid){
-        
-    }
+    void OnHashsetAnswer(ED2K_& ed2k, uint64_t cid, HashsetAnswer& hs) {}
+    void OnFidAnswer(ED2K_& ed2k, uint64_t cid, FidAnswer& fid) {}
+    void OnFileStatusAnswer(ED2K_& ed2k, uint64_t cid, FileStatusAnswer& fid) {}
+    void OnFileStatusAnswer(ED2K_& ed2k, uint64_t cid, FileStatus& fid) {}
 };
 std::string valxx() { return std::string("abc"); }
 const char* valcc(const char* v) { return std::string(v).c_str(); }

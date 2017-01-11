@@ -7,7 +7,6 @@
 //
 
 #include "ed2k.hpp"
-#include "../protocol/encoding.hpp"
 namespace emulex {
 namespace ed2k {
 using namespace emulex::protocol;
@@ -193,21 +192,21 @@ int ED2K_::OnCmd(Cmd c) {
             H->OnHashsetAnswer(*this, c->Id(), hs);
             return code;
         }
-        case OP_REQFILENAMEANSWER:{
+        case OP_REQFILENAMEANSWER: {
             FidAnswer fid;
-            fid.parse(c->data,c->header->data[0]);
+            fid.parse(c->data, c->header->data[0]);
             H->OnFidAnswer(*this, c->Id(), fid);
             return code;
         }
-        case OP_FILESTATUS:{
+        case OP_FILESTATUS: {
             FileStatusAnswer fa;
-            fa.parse(c->data,c->header->data[0]);
+            fa.parse(c->data, c->header->data[0]);
             H->OnFileStatusAnswer(*this, c->Id(), fa);
             return code;
         }
-        case OP_FILEREQANSNOFIL:{
+        case OP_FILEREQANSNOFIL: {
             FileNotAnswer fa;
-            fa.parse(c->data,c->header->data[0]);
+            fa.parse(c->data, c->header->data[0]);
             H->OnFileStatusAnswer(*this, c->Id(), fa);
             return code;
         }
@@ -319,28 +318,33 @@ void ED2K_::rfilepart(uint64_t cid, Hash &hash, FilePart &part, boost::system::e
     parts.push_back(part);
     rfilepart(cid, hash, parts, ec);
 }
-    
-void ED2K_::rfid(uint64_t cid, Hash &hash, boost::system::error_code &ec){
+
+void ED2K_::rfid(uint64_t cid, Hash &hash, boost::system::error_code &ec) {
     FidRequest args;
     args.hash = hash;
     write(cid, args.encode(), ec);
     if (ec) {
-        V_LOG_W("ED2K send request fid by hash(%s) to %s fail with code(%d)",hash.tostring().c_str(), addr_cs(esrv[cid].addr).c_str(), ec.value());
+        V_LOG_W("ED2K send request fid by hash(%s) to %s fail with code(%d)", hash.tostring().c_str(),
+                addr_cs(esrv[cid].addr).c_str(), ec.value());
     } else {
-        V_LOG_D("ED2K send request fid by hash(%s) to %s success",hash.tostring().c_str(), addr_cs(esrv[cid].addr).c_str(), cid);
+        V_LOG_D("ED2K send request fid by hash(%s) to %s success", hash.tostring().c_str(),
+                addr_cs(esrv[cid].addr).c_str(), cid);
     }
 }
-    
-void ED2K_::rfilestatus(uint64_t cid, Hash &hash, std::vector<uint8_t>& parts,uint16_t source, boost::system::error_code &ec){
+
+void ED2K_::rfilestatus(uint64_t cid, Hash &hash, std::vector<uint8_t> &parts, uint16_t source,
+                        boost::system::error_code &ec) {
     FileStatusRequest args;
-    args.hash=hash;
-    args.parts=parts;
-    args.source=source;
+    args.hash = hash;
+    args.parts = parts;
+    args.source = source;
     write(cid, args.encode(), ec);
     if (ec) {
-        V_LOG_W("ED2K send request file status by hash(%s) to %s fail with code(%d)",hash.tostring().c_str(), addr_cs(esrv[cid].addr).c_str(), ec.value());
+        V_LOG_W("ED2K send request file status by hash(%s) to %s fail with code(%d)", hash.tostring().c_str(),
+                addr_cs(esrv[cid].addr).c_str(), ec.value());
     } else {
-        V_LOG_D("ED2K send request file status by hash(%s) to %s success",hash.tostring().c_str(), addr_cs(esrv[cid].addr).c_str(), cid);
+        V_LOG_D("ED2K send request file status by hash(%s) to %s success", hash.tostring().c_str(),
+                addr_cs(esrv[cid].addr).c_str(), cid);
     }
 }
 

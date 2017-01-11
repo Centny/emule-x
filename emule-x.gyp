@@ -16,10 +16,14 @@
                 '../boost-utils/boost-utils.gyp:boost_utils',
             ],
             'sources': [
+                'fs/fs.cpp',
+                'fs/fs.hpp',
                 'ed2k/ed2k.cpp',
                 'ed2k/ed2k.hpp',
-                'protocol/encoding.cpp',
-                'protocol/encoding.hpp',
+                'encoding/encoding.cpp',
+                'encoding/encoding.hpp',
+                'protocol/ed2k_protocol.cpp',
+                'protocol/ed2k_protocol.hpp',
                 'protocol/opcodes.h',
             ],
             'conditions': [
@@ -39,6 +43,7 @@
                             "-lboost_thread",
                             "-lboost_utils",
                             "-lz",
+                            "-lcrypto",
                             "-Wl,-rpath,.",
                             "<(other_cflags)",
                         ],
@@ -55,8 +60,10 @@
                 ".."
             ],
             'sources': [
+                'fs/fs_test.hpp',
+                'encoding/encoding_test.hpp',
                 'ed2k/ed2k_test.hpp',
-                'protocol/encoding_test.hpp',
+                'protocol/ed2k_protocol_test.hpp',
                 'all_test.cpp',
             ],
             'dependencies': [
@@ -96,6 +103,7 @@
                 'emule_x',
             ],
             'sources': [
+                'fs/fs_test.hpp',
                 'ed2k/console_test.cpp',
                 'test/console_test.cpp',
             ],
