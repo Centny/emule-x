@@ -1,6 +1,6 @@
 /*==============================================================*/
 /* DBMS name:      MySQL 5.0                                    */
-/* Created on:     2017/1/19 18:47:55                           */
+/* Created on:     2017/1/19 18:49:29                           */
 /*==============================================================*/
 
 
@@ -47,11 +47,11 @@ create table ex_file
    filename             varchar(256) not null,
    size                 int not null,
    format               varchar(16),
-   location             varchar(10240) binary,
+   location             varchar(10240),
    duration             numeric,
    bitrate              numeric,
    codec                varchar(32),
-   authors              varchar(256) binary,
+   authors              varchar(256),
    description          varchar(2048),
    album                varchar(256),
    status               int not null
