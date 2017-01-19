@@ -1,6 +1,6 @@
 /*==============================================================*/
 /* DBMS name:      MySQL 5.0                                    */
-/* Created on:     2017/1/19 18:44:43                           */
+/* Created on:     2017/1/19 18:47:55                           */
 /*==============================================================*/
 
 
@@ -52,7 +52,7 @@ create table ex_file
    bitrate              numeric,
    codec                varchar(32),
    authors              varchar(256) binary,
-   "desc"               varchar(2048),
+   description          varchar(2048),
    album                varchar(256),
    status               int not null
 );
@@ -150,7 +150,7 @@ create index es_f_authors on ex_file
 /*==============================================================*/
 create index es_f_desc on ex_file
 (
-   "desc"
+   description
 );
 
 /*==============================================================*/
