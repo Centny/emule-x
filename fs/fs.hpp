@@ -21,12 +21,13 @@
 #include <string>
 #include <vector>
 #include "../encoding/encoding.hpp"
+#include "iconv.h"
 
 namespace emulex {
 namespace fs {
 using namespace butils::netw;
 using namespace emulex::encoding;
-#define ED2K_MD4_L 97281000
+#define ED2K_PART_L 9728000
 /*
  the ed2k hash
  */
@@ -57,6 +58,7 @@ class SortedPart : public std::vector<uint64_t> {
     virtual bool exists(size_t offset, size_t len);
     virtual bool isdone();
     virtual void print();
+    virtual std::vector<uint8_t> parsePartStatus(size_t plen = ED2K_PART_L);
 };
 
 #define write_data(file_, key_, data_)                                                        \
@@ -86,31 +88,39 @@ class FileConf_ {
     Hash sha1;               // 0x60
     SortedPart parts;        // 0x70
    public:
-    FileConf_(size_t size);
+    FileConf_(size_t size = 0);
     virtual void save(const char *path);
     virtual void read(const char *path);
     virtual bool add(uint64_t av, uint64_t bv);
     virtual bool exists(size_t offset, size_t len);
     virtual bool isdone();
-    virtual int readhash(const char *path);
+    virtual int readhash(const char *path, bool bmd4 = false, bool bmd5 = false, bool bsha1 = false);
+    virtual std::vector<uint8_t> parsePartStatus(size_t plen = ED2K_PART_L);
 };
 typedef boost::shared_ptr<FileConf_> FileConf;
 FileConf BuildFileConf(size_t size);
 
 class File {
    public:
-    FileConf fc;
+    FileConf_ fc;
     std::fstream *fs;
     boost::filesystem::path spath;
     boost::filesystem::path tpath;
     boost::filesystem::path cpath;
 
    public:
+    File(boost::filesystem::path spath, size_t size);
     virtual bool exists(size_t offset, size_t len);
     virtual bool write(size_t offset, Data data);
     virtual void read(size_t offset, Data data);
     virtual bool isdone();
+    virtual std::vector<uint8_t> parsePartStatus(size_t plen = ED2K_PART_L);
     virtual bool valid();
+};
+
+class FileManager{
+public:
+    
 };
 }
 }

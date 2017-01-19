@@ -30,11 +30,12 @@
                 ['OS=="mac"', {
                     'xcode_settings': {
                         'LD_DYLIB_INSTALL_NAME': "@rpath/$(EXECUTABLE_PATH)",
-                        'MACOSX_DEPLOYMENT_TARGET': '10.5',
+                        'MACOSX_DEPLOYMENT_TARGET': '10.11',
                         'OTHER_CFLAGS': [
                             "<(other_cflags)",
                         ],
                         'OTHER_LDFLAGS': [
+                            "-stdlib=libc++",
                             "-L/usr/local/lib",
                             "-L../boost-utils/build/Default",
                             '-lboost_system',
@@ -72,8 +73,9 @@
             'conditions': [
                 ['OS=="mac"', {
                     'xcode_settings': {
-                        'MACOSX_DEPLOYMENT_TARGET': '10.5',
+                        'MACOSX_DEPLOYMENT_TARGET': '10.11',
                         'OTHER_LDFLAGS': [
+                            "-stdlib=libc++",
                             "-L.",
                             "-L/usr/local/lib",
                             "-L../boost-utils/build/Default",
@@ -81,6 +83,8 @@
                             "-lboost_iostreams",
                             "-lboost_unit_test_framework",
                             "-lboost_utils",
+                            "-lboost_thread",
+                            "-lboost_filesystem",
                             "-lemule_x",
                             "-lz",
                             "-lcrypto",
@@ -110,8 +114,9 @@
             'conditions': [
                 ['OS=="mac"', {
                     'xcode_settings': {
-                        'MACOSX_DEPLOYMENT_TARGET': '10.5',
+                        'MACOSX_DEPLOYMENT_TARGET': '10.11',
                         'OTHER_LDFLAGS': [
+                            "-stdlib=libc++",
                             "-L.",
                             "-L/usr/local/lib",
                             "-L../boost-utils/build/Default",

@@ -301,6 +301,37 @@ BOOST_AUTO_TEST_CASE(FilePart) {
     }
 }
 
+BOOST_AUTO_TEST_CASE(PartStatus) {
+    emulex::fs::SortedPart fp(12*ED2K_PART_L+100);
+    fp.add(100, 200);
+    fp.add(ED2K_PART_L, 2*ED2K_PART_L-1);
+    fp.add(3*ED2K_PART_L, 4*ED2K_PART_L-100);
+    fp.add(5*ED2K_PART_L, 7*ED2K_PART_L-1);
+    fp.add(9*ED2K_PART_L, 11*ED2K_PART_L-1);
+    auto ps=fp.parsePartStatus();
+    BOOST_CHECK_EQUAL(ps.size(), 2);
+    uint8_t v=ps[0];
+    BOOST_CHECK_EQUAL((v>>7)&1, 0);
+    BOOST_CHECK_EQUAL((v>>6)&1, 1);
+    BOOST_CHECK_EQUAL((v>>5)&1, 0);
+    BOOST_CHECK_EQUAL((v>>4)&1, 0);
+    BOOST_CHECK_EQUAL((v>>3)&1, 0);
+    BOOST_CHECK_EQUAL((v>>2)&1, 1);
+    BOOST_CHECK_EQUAL((v>>1)&1, 1);
+    BOOST_CHECK_EQUAL((v>>1)&0, 0);
+    uint8_t v2=ps[1];
+    BOOST_CHECK_EQUAL((v2>>7)&1, 0);
+    BOOST_CHECK_EQUAL((v2>>6)&1, 1);
+    BOOST_CHECK_EQUAL((v2>>5)&1, 1);
+    BOOST_CHECK_EQUAL((v2>>4)&1, 0);
+    BOOST_CHECK_EQUAL((v2>>3)&1, 0);
+    BOOST_CHECK_EQUAL((v2>>2)&1, 0);
+    BOOST_CHECK_EQUAL((v2>>1)&1, 0);
+    BOOST_CHECK_EQUAL((v2>>0)&1, 0);
+//    BOOST_CHECK_EQUAL(fp[0], 0);
+//    BOOST_CHECK_EQUAL(fp[1], 1200);
+}
+
 BOOST_AUTO_TEST_CASE(FileConf) {
     emulex::fs::FileConf fc = emulex::fs::BuildFileConf(100);
     fc->name = BuildData("testing", 7);
@@ -333,10 +364,23 @@ BOOST_AUTO_TEST_CASE(FileConf) {
 }
 
 BOOST_AUTO_TEST_CASE(ReadHash) {
+    auto pp=boost::filesystem::path("/tmp");
+    std::cout<<pp<<std::endl;
+    auto bb=pp.append("abc");
+    std::cout<<pp<<std::endl;
+    std::cout<<bb<<std::endl;
     emulex::fs::FileConf fc = emulex::fs::BuildFileConf(100);
-    BOOST_CHECK_EQUAL(fc->readhash("/tmp/a.dat.xcf"), 0);
-    //    BOOST_CHECK_EQUAL(strcmp(fc->name->data, "a.dat.xcf"), 0);
+    BOOST_CHECK_EQUAL(fc->readhash("rh.dat", true, true, true), 0);
+    BOOST_CHECK_EQUAL(strcmp(fc->name->data,"rh.dat"), 0);
+    BOOST_CHECK_EQUAL(fc->size, 4);
+    BOOST_CHECK_EQUAL(fc->ed2k.size(), 1);
+    BOOST_CHECK_EQUAL(fc->md4->len, 16);
+    fc->md4->print();
+    fc->md5->print();
+    fc->sha1->print();
 }
+
+
 
 BOOST_AUTO_TEST_SUITE_END()
 
