@@ -1,8 +1,10 @@
 /*==============================================================*/
 /* DBMS name:      MySQL 5.0                                    */
-/* Created on:     2017/1/19 18:49:29                           */
+/* Created on:     2017/1/19 19:00:50                           */
 /*==============================================================*/
 
+
+drop table if exists ex_env;
 
 drop index es_f_status on ex_file;
 
@@ -35,6 +37,19 @@ drop index es_f_sha on ex_file;
 drop table if exists ex_file;
 
 drop table if exists ex_task;
+
+/*==============================================================*/
+/* Table: ex_env                                                */
+/*==============================================================*/
+create table ex_env
+(
+   name                 varchar(32) not null,
+   vala                 varchar(10240),
+   valb                 varchar(10240),
+   valc                 varchar(10240),
+   vald                 varchar(10240),
+   primary key (name)
+);
 
 /*==============================================================*/
 /* Table: ex_file                                               */
