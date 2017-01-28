@@ -10,7 +10,8 @@
             'include_dirs': [
                 '/usr/local/include',
                 '/usr/include',
-                ".."
+                "..",
+                "../boost-utils",
             ],
             'dependencies': [
                 '../boost-utils/boost-utils.gyp:boost_utils',
@@ -18,6 +19,7 @@
             'sources': [
                 'fs/fs.cpp',
                 'fs/fs.hpp',
+                'fs/sql.cpp',
                 'ed2k/ed2k.cpp',
                 'ed2k/ed2k.hpp',
                 'encoding/encoding.cpp',
@@ -45,6 +47,8 @@
                             "-lboost_utils",
                             "-lz",
                             "-lcrypto",
+                            "-lsqlite3",
+                            "-lboost_regex",
                             "-Wl,-rpath,.",
                             "<(other_cflags)",
                         ],
@@ -58,7 +62,8 @@
             'include_dirs': [
                 '/usr/local/include',
                 '/usr/include',
-                ".."
+                "..",
+                "../boost-utils",
             ],
             'sources': [
                 'fs/fs_test.hpp',
@@ -88,6 +93,8 @@
                             "-lemule_x",
                             "-lz",
                             "-lcrypto",
+                            "-lsqlite3",
+                            "-lboost_regex",
                             "-Wl,-rpath,$(PROJECT_DIR)/../boost-utils/build/Default",
                             "-Wl,-rpath,."
                         ],
@@ -101,7 +108,8 @@
             'include_dirs': [
                 '/usr/local/include',
                 '/usr/include',
-                ".."
+                "..",
+                "../boost-utils",
             ],
             'dependencies': [
                 'emule_x',
@@ -127,6 +135,8 @@
                             "-lemule_x",
                             "-lz",
                             "-lcrypto",
+                            "-lsqlite3",
+                            "-lboost_regex",
                             "-Wl,-rpath,$(PROJECT_DIR)/../boost-utils/build/Default",
                             "-Wl,-rpath,."
                         ],

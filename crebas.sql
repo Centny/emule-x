@@ -1,40 +1,54 @@
 /*==============================================================*/
 /* DBMS name:      MySQL 5.0                                    */
-/* Created on:     2017/1/19 19:00:50                           */
+/* Created on:     2017/1/23 15:38:32                           */
 /*==============================================================*/
 
 
 drop table if exists ex_env;
 
-drop index es_f_status on ex_file;
+drop index ex_f_status on ex_file;
 
-drop index es_f_album on ex_file;
+drop index ex_f_album on ex_file;
 
-drop index es_f_desc on ex_file;
+drop index ex_f_desc on ex_file;
 
-drop index es_f_authors on ex_file;
+drop index ex_f_authors on ex_file;
 
-drop index es_f_codec on ex_file;
+drop index ex_f_codec on ex_file;
 
-drop index es_f_bitrate on ex_file;
+drop index ex_f_bitrate on ex_file;
 
-drop index es_f_duration on ex_file;
+drop index ex_f_duration on ex_file;
 
-drop index es_f_location on ex_file;
+drop index ex_f_location on ex_file;
 
-drop index es_f_format on ex_file;
+drop index ex_f_format on ex_file;
 
-drop index es_f_size on ex_file;
+drop index ex_f_size on ex_file;
 
-drop index es_f_filename on ex_file;
+drop index ex_f_filename on ex_file;
 
-drop index es_f_emd4 on ex_file;
+drop index ex_f_emd4 on ex_file;
 
-drop index es_f_md5 on ex_file;
+drop index ex_f_md5 on ex_file;
 
-drop index es_f_sha on ex_file;
+drop index ex_f_sha on ex_file;
 
 drop table if exists ex_file;
+
+drop index ex_t_status on ex_task;
+
+drop index ex_t_used on ex_task;
+
+drop index ex_t_ext on ex_task;
+
+drop index ex_t_done on ex_task;
+
+drop index ex_t_size on ex_task;
+
+drop index ex_t_location on ex_task;
+
+drop index ex_t_filename on ex_task;
 
 drop table if exists ex_task;
 
@@ -73,113 +87,113 @@ create table ex_file
 );
 
 /*==============================================================*/
-/* Index: es_f_sha                                              */
+/* Index: ex_f_sha                                              */
 /*==============================================================*/
-create unique index es_f_sha on ex_file
+create unique index ex_f_sha on ex_file
 (
    sha
 );
 
 /*==============================================================*/
-/* Index: es_f_md5                                              */
+/* Index: ex_f_md5                                              */
 /*==============================================================*/
-create unique index es_f_md5 on ex_file
+create unique index ex_f_md5 on ex_file
 (
    md5
 );
 
 /*==============================================================*/
-/* Index: es_f_emd4                                             */
+/* Index: ex_f_emd4                                             */
 /*==============================================================*/
-create unique index es_f_emd4 on ex_file
+create unique index ex_f_emd4 on ex_file
 (
    emd4
 );
 
 /*==============================================================*/
-/* Index: es_f_filename                                         */
+/* Index: ex_f_filename                                         */
 /*==============================================================*/
-create index es_f_filename on ex_file
+create index ex_f_filename on ex_file
 (
    filename
 );
 
 /*==============================================================*/
-/* Index: es_f_size                                             */
+/* Index: ex_f_size                                             */
 /*==============================================================*/
-create index es_f_size on ex_file
+create index ex_f_size on ex_file
 (
    size
 );
 
 /*==============================================================*/
-/* Index: es_f_format                                           */
+/* Index: ex_f_format                                           */
 /*==============================================================*/
-create index es_f_format on ex_file
+create index ex_f_format on ex_file
 (
    format
 );
 
 /*==============================================================*/
-/* Index: es_f_location                                         */
+/* Index: ex_f_location                                         */
 /*==============================================================*/
-create index es_f_location on ex_file
+create index ex_f_location on ex_file
 (
    location
 );
 
 /*==============================================================*/
-/* Index: es_f_duration                                         */
+/* Index: ex_f_duration                                         */
 /*==============================================================*/
-create index es_f_duration on ex_file
+create index ex_f_duration on ex_file
 (
    duration
 );
 
 /*==============================================================*/
-/* Index: es_f_bitrate                                          */
+/* Index: ex_f_bitrate                                          */
 /*==============================================================*/
-create index es_f_bitrate on ex_file
+create index ex_f_bitrate on ex_file
 (
    bitrate
 );
 
 /*==============================================================*/
-/* Index: es_f_codec                                            */
+/* Index: ex_f_codec                                            */
 /*==============================================================*/
-create index es_f_codec on ex_file
+create index ex_f_codec on ex_file
 (
    codec
 );
 
 /*==============================================================*/
-/* Index: es_f_authors                                          */
+/* Index: ex_f_authors                                          */
 /*==============================================================*/
-create index es_f_authors on ex_file
+create index ex_f_authors on ex_file
 (
    authors
 );
 
 /*==============================================================*/
-/* Index: es_f_desc                                             */
+/* Index: ex_f_desc                                             */
 /*==============================================================*/
-create index es_f_desc on ex_file
+create index ex_f_desc on ex_file
 (
    description
 );
 
 /*==============================================================*/
-/* Index: es_f_album                                            */
+/* Index: ex_f_album                                            */
 /*==============================================================*/
-create index es_f_album on ex_file
+create index ex_f_album on ex_file
 (
    album
 );
 
 /*==============================================================*/
-/* Index: es_f_status                                           */
+/* Index: ex_f_status                                           */
 /*==============================================================*/
-create index es_f_status on ex_file
+create index ex_f_status on ex_file
 (
    status
 );
@@ -189,9 +203,70 @@ create index es_f_status on ex_file
 /*==============================================================*/
 create table ex_task
 (
-   filename             varchar(256) binary not null,
-   location             varchar(4096) binary,
+   tid                  int not null,
+   filename             varchar(256) not null,
+   location             varchar(4096) not null,
    size                 int not null,
-   ext                  varchar(8)
+   done                 int not null,
+   format               varchar(8),
+   used                 int not null,
+   status               int not null,
+   primary key (tid)
+);
+
+/*==============================================================*/
+/* Index: ex_t_filename                                         */
+/*==============================================================*/
+create index ex_t_filename on ex_task
+(
+   filename
+);
+
+/*==============================================================*/
+/* Index: ex_t_location                                         */
+/*==============================================================*/
+create index ex_t_location on ex_task
+(
+   location
+);
+
+/*==============================================================*/
+/* Index: ex_t_size                                             */
+/*==============================================================*/
+create index ex_t_size on ex_task
+(
+   size
+);
+
+/*==============================================================*/
+/* Index: ex_t_done                                             */
+/*==============================================================*/
+create index ex_t_done on ex_task
+(
+   done
+);
+
+/*==============================================================*/
+/* Index: ex_t_ext                                              */
+/*==============================================================*/
+create index ex_t_ext on ex_task
+(
+   format
+);
+
+/*==============================================================*/
+/* Index: ex_t_used                                             */
+/*==============================================================*/
+create index ex_t_used on ex_task
+(
+   used
+);
+
+/*==============================================================*/
+/* Index: ex_t_status                                           */
+/*==============================================================*/
+create index ex_t_status on ex_task
+(
+   status
 );
 

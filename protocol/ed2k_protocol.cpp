@@ -268,13 +268,13 @@ void FileEntry_::parse(Decoding &dec, uint8_t magic) {
         tag.parse(dec);
         if (tag.uname) {
             if (tag.uname == FT_FILENAME && tag.sval.get()) {
-                name = tag.sval->share();
+                name = tag.sval;
             } else if (tag.uname == FT_FILESIZE) {
                 size = tag.u64v;
             } else if (tag.uname == FT_FILETYPE) {
-                type = tag.sval->share();
+                type = tag.sval;
             } else if (tag.uname == FT_FILEFORMAT && tag.sval.get()) {
-                format = tag.sval->share();
+                format = tag.sval;
             } else if (tag.uname == FT_SOURCES) {
                 sources = tag.u8v;
             } else if (tag.uname == FT_COMPLETE_SOURCES) {
@@ -286,11 +286,11 @@ void FileEntry_::parse(Decoding &dec, uint8_t magic) {
             }
         } else if (tag.sname.get()) {
             if (tag.sname->cmp("Artist") && tag.sval.get()) {
-                artist = tag.sval->share();
+                artist = tag.sval;
             } else if (tag.sname->cmp("Album") && tag.sval.get()) {
-                album = tag.sval->share();
+                album = tag.sval;
             } else if (tag.sval->cmp("Title")) {
-                title = tag.sval->share();
+                title = tag.sval;
             } else if (tag.sval->cmp("length")) {
                 length = tag.u32v;
             } else if (tag.sval->cmp("bitrate")) {

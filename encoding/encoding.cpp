@@ -166,7 +166,7 @@ void Encoding::print(char *buf) {
 }
 
 Decoding::Decoding(Data &data) {
-    this->data = data->share();
+    this->data = data;
     this->offset = 0;
 }
 Decoding::~Decoding() {}

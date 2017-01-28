@@ -18,10 +18,12 @@
 #include <map>
 #include <sstream>
 #include <string>
+#include <tools/fail.hpp>
 namespace emulex {
 namespace encoding {
 using namespace boost;
 using namespace butils::netw;
+using namespace butils::tools;
 const uint8_t STR_TAG = 0x2;
 const uint8_t INT_TAG = 0x3;
 const uint8_t FLOAT_TAG = 0x4;

@@ -10,6 +10,7 @@
 #define fs_test_h
 
 #include <boost/test/included/unit_test.hpp>
+#include <fstream>
 #include "fs.hpp"
 
 using namespace boost;
@@ -48,6 +49,7 @@ BOOST_AUTO_TEST_CASE(TestHash) {
     hs.clear();
     h1.set(100);
     h1.set("abc", 3);
+    printf("TestHash done...\n");
 }
 
 BOOST_AUTO_TEST_CASE(TestHashFree) {
@@ -69,6 +71,7 @@ BOOST_AUTO_TEST_CASE(TestHashFree) {
         BOOST_CHECK_EQUAL(h1.tostring() == h2.tostring(), false);
     }
     hs.clear();
+    printf("TestHashFree done...\n");
 }
 
 BOOST_AUTO_TEST_CASE(TestHashMap) {
@@ -110,6 +113,7 @@ BOOST_AUTO_TEST_CASE(TestHashMap) {
         BOOST_CHECK_EQUAL(h5 < h6, true);
     }
     hs.clear();
+    printf("TestHashMap done...\n");
 }
 
 BOOST_AUTO_TEST_CASE(TestHax) {
@@ -125,6 +129,7 @@ BOOST_AUTO_TEST_CASE(TestHax) {
         BOOST_CHECK_EQUAL(hs.size(), 2);
     }
     hs.clear();
+    printf("TestHax done...\n");
 }
 
 BOOST_AUTO_TEST_CASE(FilePart) {
@@ -299,42 +304,45 @@ BOOST_AUTO_TEST_CASE(FilePart) {
         BOOST_CHECK_EQUAL(fp.add(50, 99), false);
         BOOST_CHECK_EQUAL(fp.add(10, 50), true);
     }
+    printf("FilePart done...\n");
 }
 
 BOOST_AUTO_TEST_CASE(PartStatus) {
-    emulex::fs::SortedPart fp(12*ED2K_PART_L+100);
+    emulex::fs::SortedPart fp(12 * ED2K_PART_L + 100);
     fp.add(100, 200);
-    fp.add(ED2K_PART_L, 2*ED2K_PART_L-1);
-    fp.add(3*ED2K_PART_L, 4*ED2K_PART_L-100);
-    fp.add(5*ED2K_PART_L, 7*ED2K_PART_L-1);
-    fp.add(9*ED2K_PART_L, 11*ED2K_PART_L-1);
-    auto ps=fp.parsePartStatus();
+    fp.add(ED2K_PART_L, 2 * ED2K_PART_L - 1);
+    fp.add(3 * ED2K_PART_L, 4 * ED2K_PART_L - 100);
+    fp.add(5 * ED2K_PART_L, 7 * ED2K_PART_L - 1);
+    fp.add(9 * ED2K_PART_L, 11 * ED2K_PART_L - 1);
+    auto ps = fp.parsePartStatus();
     BOOST_CHECK_EQUAL(ps.size(), 2);
-    uint8_t v=ps[0];
-    BOOST_CHECK_EQUAL((v>>7)&1, 0);
-    BOOST_CHECK_EQUAL((v>>6)&1, 1);
-    BOOST_CHECK_EQUAL((v>>5)&1, 0);
-    BOOST_CHECK_EQUAL((v>>4)&1, 0);
-    BOOST_CHECK_EQUAL((v>>3)&1, 0);
-    BOOST_CHECK_EQUAL((v>>2)&1, 1);
-    BOOST_CHECK_EQUAL((v>>1)&1, 1);
-    BOOST_CHECK_EQUAL((v>>1)&0, 0);
-    uint8_t v2=ps[1];
-    BOOST_CHECK_EQUAL((v2>>7)&1, 0);
-    BOOST_CHECK_EQUAL((v2>>6)&1, 1);
-    BOOST_CHECK_EQUAL((v2>>5)&1, 1);
-    BOOST_CHECK_EQUAL((v2>>4)&1, 0);
-    BOOST_CHECK_EQUAL((v2>>3)&1, 0);
-    BOOST_CHECK_EQUAL((v2>>2)&1, 0);
-    BOOST_CHECK_EQUAL((v2>>1)&1, 0);
-    BOOST_CHECK_EQUAL((v2>>0)&1, 0);
-//    BOOST_CHECK_EQUAL(fp[0], 0);
-//    BOOST_CHECK_EQUAL(fp[1], 1200);
+    uint8_t v = ps[0];
+    BOOST_CHECK_EQUAL((v >> 7) & 1, 0);
+    BOOST_CHECK_EQUAL((v >> 6) & 1, 1);
+    BOOST_CHECK_EQUAL((v >> 5) & 1, 0);
+    BOOST_CHECK_EQUAL((v >> 4) & 1, 0);
+    BOOST_CHECK_EQUAL((v >> 3) & 1, 0);
+    BOOST_CHECK_EQUAL((v >> 2) & 1, 1);
+    BOOST_CHECK_EQUAL((v >> 1) & 1, 1);
+    BOOST_CHECK_EQUAL((v >> 1) & 0, 0);
+    uint8_t v2 = ps[1];
+    BOOST_CHECK_EQUAL((v2 >> 7) & 1, 0);
+    BOOST_CHECK_EQUAL((v2 >> 6) & 1, 1);
+    BOOST_CHECK_EQUAL((v2 >> 5) & 1, 1);
+    BOOST_CHECK_EQUAL((v2 >> 4) & 1, 0);
+    BOOST_CHECK_EQUAL((v2 >> 3) & 1, 0);
+    BOOST_CHECK_EQUAL((v2 >> 2) & 1, 0);
+    BOOST_CHECK_EQUAL((v2 >> 1) & 1, 0);
+    BOOST_CHECK_EQUAL((v2 >> 0) & 1, 0);
+    //    BOOST_CHECK_EQUAL(fp[0], 0);
+    //    BOOST_CHECK_EQUAL(fp[1], 1200);
+    printf("PartStatus done...\n");
 }
 
 BOOST_AUTO_TEST_CASE(FileConf) {
+    boost::filesystem::remove_all(boost::filesystem::path("xx.xcf"));
     emulex::fs::FileConf fc = emulex::fs::BuildFileConf(100);
-    fc->name = BuildData("testing", 7);
+    fc->name = BuildData("testing", 7, true);
     fc->size = 100;
     fc->md4 = BuildHash(16);
     fc->ed2k.push_back(BuildHash(16));
@@ -345,6 +353,8 @@ BOOST_AUTO_TEST_CASE(FileConf) {
     fc->save("xx.xcf");
     emulex::fs::FileConf fc2 = emulex::fs::BuildFileConf(100);
     fc2->read("xx.xcf");
+    fc->name->print();
+    fc2->name->print();
     BOOST_CHECK_EQUAL(strcmp(fc->name->data, fc2->name->data), 0);
     BOOST_CHECK_EQUAL(fc->size, fc2->size);
     BOOST_CHECK_EQUAL(fc2->ed2k.size(), 2);
@@ -361,26 +371,71 @@ BOOST_AUTO_TEST_CASE(FileConf) {
     fc2->read("xx2.xcf");
     BOOST_CHECK_EQUAL(fc2->ed2k.size(), 0);
     BOOST_CHECK_EQUAL(fc2->parts.size(), 0);
+    printf("FileConf done...\n");
 }
 
 BOOST_AUTO_TEST_CASE(ReadHash) {
-    auto pp=boost::filesystem::path("/tmp");
-    std::cout<<pp<<std::endl;
-    auto bb=pp.append("abc");
-    std::cout<<pp<<std::endl;
-    std::cout<<bb<<std::endl;
+    boost::filesystem::remove_all(boost::filesystem::path("rh.dat"));
+    std::fstream fs;
+    fs.open("rh.dat", std::fstream::out);
+    fs << "abcd";
+    fs.close();
+    auto pp = boost::filesystem::path("/tmp");
+    std::cout << pp << std::endl;
+    auto bb = pp.append("abc");
+    std::cout << pp << std::endl;
+    std::cout << bb << std::endl;
     emulex::fs::FileConf fc = emulex::fs::BuildFileConf(100);
     BOOST_CHECK_EQUAL(fc->readhash("rh.dat", true, true, true), 0);
-    BOOST_CHECK_EQUAL(strcmp(fc->name->data,"rh.dat"), 0);
+    BOOST_CHECK_EQUAL(strcmp(fc->name->data, "rh.dat"), 0);
     BOOST_CHECK_EQUAL(fc->size, 4);
     BOOST_CHECK_EQUAL(fc->ed2k.size(), 1);
     BOOST_CHECK_EQUAL(fc->md4->len, 16);
     fc->md4->print();
     fc->md5->print();
     fc->sha1->print();
+    printf("ReadHash done...\n");
 }
 
+BOOST_AUTO_TEST_CASE(Task) {
+    boost::filesystem::remove_all(boost::filesystem::path("task.db"));
+    auto tdb = FTaskDb(new FTaskDb_);
+    tdb->init("task.db");
+    FTask task = FTask(new FTask_);
+    task->filename = BuildData("abc.txt", 7, true);
+    task->location = BuildData("abc.txt", 7, true);
+    task->size = 7;
+    task->format = BuildData(".txt", 4);
+    task->status = FTSS_RUNNING;
+    auto tid = tdb->add(task);
+    BOOST_CHECK_EQUAL(tid, 1);
+    BOOST_CHECK_EQUAL(tdb->count(), 1);
+    auto ts = tdb->list();
+    BOOST_CHECK_EQUAL(ts.size(), 1);
+    tdb->remove(tid);
+    BOOST_CHECK_EQUAL(tdb->count(), 0);
+    printf("Task done...\n");
+}
 
+BOOST_AUTO_TEST_CASE(Data) {
+    boost::filesystem::remove_all(boost::filesystem::path("data.db"));
+    auto tdb = FDataDb(new FDataDb_);
+    tdb->init("data.db");
+    FData data = FData(new FData_);
+    data->filename = BuildData("abc.txt", 7, true);
+    data->location = BuildData("abc.txt", 7, true);
+    data->size = 7;
+    data->format = BuildData(".txt", 4);
+    data->status = FTSS_RUNNING;
+    auto tid = tdb->add(task);
+    BOOST_CHECK_EQUAL(tid, 1);
+    BOOST_CHECK_EQUAL(tdb->count(), 1);
+    auto ts = tdb->list();
+    BOOST_CHECK_EQUAL(ts.size(), 1);
+    tdb->remove(tid);
+    BOOST_CHECK_EQUAL(tdb->count(), 0);
+    printf("Task done...\n");
+}
 
 BOOST_AUTO_TEST_SUITE_END()
 

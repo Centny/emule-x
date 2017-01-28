@@ -19,6 +19,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <tools/sqlite.hpp>
 #include <vector>
 #include "../encoding/encoding.hpp"
 #include "iconv.h"
@@ -26,8 +27,13 @@
 namespace emulex {
 namespace fs {
 using namespace butils::netw;
+using namespace butils::tools;
 using namespace emulex::encoding;
 #define ED2K_PART_L 9728000
+#define EMULEX_FSDB_VER 1
+#define EMULEX_TSDB_VER 1
+//
+#define EMULEX_FORMAT_L 8
 /*
  the ed2k hash
  */
@@ -118,10 +124,69 @@ class File {
     virtual bool valid();
 };
 
-class FileManager{
-public:
-    
+class FileManager {
+   public:
 };
+
+//
+#define FDSS_SHARING 100
+#define FDSD_VER 100
+std::map<int, const char *> FS_VER_SQL();
+class FData_ {
+   public:
+    Hash sha1;
+    Hash md5;
+    Hash emd4;
+    Data filename;
+    uint64_t size = 0;
+    Data format;
+    Data location;
+    double duration;
+    double bitrate;
+    Data codec;
+    Data authors;
+    Data description;
+    int status=0;
+};
+typedef boost::shared_ptr<FData_> FData;
+
+ class FDataDb_ : public SQLite_ {
+   public:
+    virtual void init(const char *spath);
+     virtual int count(int status = FDSS_SHARING);
+     virtual std::vector<FData> list(int status = FDSS_SHARING, int skip = 0, int limit = 30);
+     virtual uint64_t add(FData &task);
+     virtual void remove(uint64_t tid);
+};
+    typedef boost::shared_ptr<FDataDb_> FDataDb;
+//
+#define FTSS_DONE 200
+#define FTSS_RUNNING 100
+#define FTSD_VER 100
+std::map<int, const char *> TS_VER_SQL();
+class FTask_ {
+   public:
+    uint64_t tid = 0;
+    Data filename;
+    Data location;
+    uint64_t size = 0;
+    uint64_t done = 0;
+    Data format;
+    uint64_t used = 0;
+    int status = 0;
+};
+typedef boost::shared_ptr<FTask_> FTask;
+//
+class FTaskDb_ : public SQLite_ {
+   public:
+    FTaskDb_();
+    virtual void init(const char *spath);
+    virtual int count(int status = FTSS_RUNNING);
+    virtual std::vector<FTask> list(int status = FTSS_RUNNING, int skip = 0, int limit = 30);
+    virtual uint64_t add(FTask &task);
+    virtual void remove(uint64_t tid);
+};
+typedef boost::shared_ptr<FTaskDb_> FTaskDb;
 }
 }
 

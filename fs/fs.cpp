@@ -7,9 +7,9 @@
 //
 
 #include "fs.hpp"
+#include <sqlite3.h>
 #include <boost/foreach.hpp>
 #include <fstream>
-#include <sqlite3.h>
 
 namespace emulex {
 namespace fs {
@@ -149,40 +149,40 @@ void SortedPart::print() {
     }
     printf("\n");
 }
-    
-std::vector<uint8_t> SortedPart::parsePartStatus(size_t plen){
+
+std::vector<uint8_t> SortedPart::parsePartStatus(size_t plen) {
     std::vector<uint8_t> parts;
     size_t len = size() / 2;
-    uint8_t part=0;
-    long pidx=0;
-    int dc=0;
+    uint8_t part = 0;
+    long pidx = 0;
+    int dc = 0;
     for (size_t i = 0; i < len; i++) {
-        long offset=at(2*i)/plen;
-        if(at(2*i)%plen>0){
+        long offset = at(2 * i) / plen;
+        if (at(2 * i) % plen > 0) {
             offset++;
         }
-        dc+=offset-pidx;
-        while(dc>8){
+        dc += offset - pidx;
+        while (dc > 8) {
             parts.push_back(part);
-            dc-=8;
-            part=0;
+            dc -= 8;
+            part = 0;
         }
-        pidx=offset;
+        pidx = offset;
         //
-        long ac=(at(2*i+1)-at(2*i)+1)/plen;
-        for (long j=0; j<ac; j++) {
-            part=(1<<(7-dc))|part;
+        long ac = (at(2 * i + 1) - at(2 * i) + 1) / plen;
+        for (long j = 0; j < ac; j++) {
+            part = (1 << (7 - dc)) | part;
             dc++;
-            if(dc<8){
+            if (dc < 8) {
                 continue;
             }
             parts.push_back(part);
-            dc=0;
-            part=0;
+            dc = 0;
+            part = 0;
         }
-        pidx=offset+ac;
+        pidx = offset + ac;
     }
-    if(dc>0){
+    if (dc > 0) {
         parts.push_back(part);
     }
     return parts;
@@ -231,7 +231,7 @@ void FileConf_::read(const char *path) {
     while (dec.offset < data->len) {
         switch (dec.get<uint8_t, 1>()) {
             case 0x10: {
-                name = BuildData(dec.get<uint16_t, 2>());
+                name = BuildData(dec.get<uint16_t, 2>(), true);
                 dec.get(name->data, name->len);
                 break;
             }
@@ -298,7 +298,10 @@ int FileConf_::readhash(const char *path, bool bmd4, bool bmd5, bool bsha1) {
             SHA1_Init(&fsha);
         }
         file.open(path, std::fstream::in | std::fstream::ate);
-        auto fname=boost::filesystem::path(path).filename();
+        if (!file.is_open()) {
+            throw LFail(strlen(path) + 64, "FileConf_ read hash open path(%s) fail", path);
+        }
+        auto fname = boost::filesystem::path(path).filename();
         name = BuildData(fname.c_str(), fname.size());
         size = file.tellg();
         file.seekg(0);
@@ -348,18 +351,16 @@ int FileConf_::readhash(const char *path, bool bmd4, bool bmd5, bool bsha1) {
         return -1;
     }
 }
-    
-std::vector<uint8_t> FileConf_::parsePartStatus(size_t plen){
-    return parts.parsePartStatus(plen);
-}
+
+std::vector<uint8_t> FileConf_::parsePartStatus(size_t plen) { return parts.parsePartStatus(plen); }
 
 FileConf BuildFileConf(size_t size) { return FileConf(new FileConf_(size)); }
 
-    File::File(boost::filesystem::path spath,size_t size):fc(size){
-        this->spath=spath;
-        this->tpath=boost::filesystem::path(spath.string()+".xdm");
-        this->cpath=boost::filesystem::path(spath.string()+".xcm");
-    }
+File::File(boost::filesystem::path spath, size_t size) : fc(size) {
+    this->spath = spath;
+    this->tpath = boost::filesystem::path(spath.string() + ".xdm");
+    this->cpath = boost::filesystem::path(spath.string() + ".xcm");
+}
 bool File::exists(size_t offset, size_t len) { return fc.exists(offset, len); }
 
 bool File::write(size_t offset, Data data) {
@@ -377,12 +378,48 @@ void File::read(size_t offset, Data data) {
 
 bool File::isdone() { return fc.isdone(); }
 
-std::vector<uint8_t> File::parsePartStatus(size_t plen){
-    return fc.parsePartStatus(plen);
-}
-    
+std::vector<uint8_t> File::parsePartStatus(size_t plen) { return fc.parsePartStatus(plen); }
+
 bool File::valid() {}
+
+ void FDataDb_::init(const char *spath) { SQLite_::init(spath, FS_VER_SQL()); }
+
+FTaskDb_::FTaskDb_() : butils::tools::SQLite_(FTSD_VER) {}
+
+void FTaskDb_::init(const char *spath) { SQLite_::init(spath, TS_VER_SQL()); }
+
+int FTaskDb_::count(int status) { return intv("select count(*) from ex_task where status=%d", status); }
+
+std::vector<FTask> FTaskDb_::list(int status, int skip, int limit) {
+    std::vector<FTask> ts;
+    auto stmt =
+        prepare("select tid,filename,location,size,done,format,used,status from ex_task where status=%d limit %d,%d",
+                status, skip, limit);
+    while (stmt->step()) {
+        int idx = 0;
+        auto task = FTask(new FTask_);
+        task->tid = stmt->intv(idx++);
+        task->filename = stmt->stringv(idx++);
+        task->location = stmt->stringv(idx++);
+        task->size = stmt->intv(idx++);
+        task->done = stmt->intv(idx++);
+        task->format = stmt->stringv(idx++);
+        task->used = stmt->intv(idx++);
+        task->status = (int)stmt->intv(idx++);
+        ts.push_back(task);
+    }
+    return ts;
 }
 
-    
+uint64_t FTaskDb_::add(FTask &task) {
+    SQLite_::exec(
+        "insert into ex_task (tid,filename,location,size,done,format,used,status) values "
+        "(null,'%s','%s',%lu,%lu,'%s',%lu,%d)",
+        task->filename->data, task->location->data, task->size, task->done, task->format->data, task->used,
+        task->status);
+    return SQLite_::intv("select last_insert_rowid()");
+}
+
+void FTaskDb_::remove(uint64_t tid) { SQLite_::exec("delete from ex_task where tid=%d", tid); }
+}
 }
