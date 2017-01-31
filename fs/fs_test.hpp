@@ -342,9 +342,9 @@ BOOST_AUTO_TEST_CASE(PartStatus) {
 BOOST_AUTO_TEST_CASE(FileConf) {
     boost::filesystem::remove_all(boost::filesystem::path("xx.xcf"));
     emulex::fs::FileConf fc = emulex::fs::BuildFileConf(100);
-    fc->name = BuildData("testing", 7, true);
+    fc->filename = BuildData("testing", 7, true);
     fc->size = 100;
-    fc->md4 = BuildHash(16);
+    fc->emd4 = BuildHash(16);
     fc->ed2k.push_back(BuildHash(16));
     fc->ed2k.push_back(BuildHash(16));
     fc->md5 = BuildHash(20);
@@ -353,9 +353,9 @@ BOOST_AUTO_TEST_CASE(FileConf) {
     fc->save("xx.xcf");
     emulex::fs::FileConf fc2 = emulex::fs::BuildFileConf(100);
     fc2->read("xx.xcf");
-    fc->name->print();
-    fc2->name->print();
-    BOOST_CHECK_EQUAL(strcmp(fc->name->data, fc2->name->data), 0);
+    fc->filename->print();
+    fc2->filename->print();
+    BOOST_CHECK_EQUAL(strcmp(fc->filename->data, fc2->filename->data), 0);
     BOOST_CHECK_EQUAL(fc->size, fc2->size);
     BOOST_CHECK_EQUAL(fc2->ed2k.size(), 2);
     BOOST_CHECK_EQUAL(fc2->parts.size(), 2);
@@ -387,11 +387,11 @@ BOOST_AUTO_TEST_CASE(ReadHash) {
     std::cout << bb << std::endl;
     emulex::fs::FileConf fc = emulex::fs::BuildFileConf(100);
     BOOST_CHECK_EQUAL(fc->readhash("rh.dat", true, true, true), 0);
-    BOOST_CHECK_EQUAL(strcmp(fc->name->data, "rh.dat"), 0);
+    BOOST_CHECK_EQUAL(strcmp(fc->filename->data, "rh.dat"), 0);
     BOOST_CHECK_EQUAL(fc->size, 4);
     BOOST_CHECK_EQUAL(fc->ed2k.size(), 1);
-    BOOST_CHECK_EQUAL(fc->md4->len, 16);
-    fc->md4->print();
+    BOOST_CHECK_EQUAL(fc->emd4->len, 16);
+    fc->emd4->print();
     fc->md5->print();
     fc->sha1->print();
     printf("ReadHash done...\n");
@@ -421,20 +421,20 @@ BOOST_AUTO_TEST_CASE(Data) {
     boost::filesystem::remove_all(boost::filesystem::path("data.db"));
     auto tdb = FDataDb(new FDataDb_);
     tdb->init("data.db");
-    FData data = FData(new FData_);
-    data->filename = BuildData("abc.txt", 7, true);
-    data->location = BuildData("abc.txt", 7, true);
-    data->size = 7;
-    data->format = BuildData(".txt", 4);
-    data->status = FTSS_RUNNING;
-    auto tid = tdb->add(task);
+    std::fstream fs;
+    fs.open("test.dat", std::fstream::out);
+    fs << "abcd";
+    fs.close();
+    auto fd = BuildFData("test.dat");
+    BOOST_CHECK_EQUAL(fd->size, 4);
+    auto tid = tdb->add(fd);
     BOOST_CHECK_EQUAL(tid, 1);
     BOOST_CHECK_EQUAL(tdb->count(), 1);
     auto ts = tdb->list();
     BOOST_CHECK_EQUAL(ts.size(), 1);
     tdb->remove(tid);
     BOOST_CHECK_EQUAL(tdb->count(), 0);
-    printf("Task done...\n");
+    printf("File done...\n");
 }
 
 BOOST_AUTO_TEST_SUITE_END()

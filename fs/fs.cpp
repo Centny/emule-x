@@ -78,7 +78,11 @@ std::string hash_tos(const char *hash) {
 Hash BuildHash(size_t len) { return Hash(len); }
 
 Hash BuildHash(const char *buf, size_t len) { return Hash(buf, len); }
+
+Hash BuildHash(Data &data) { return Hash(data->data, data->len); }
+
 SortedPart::SortedPart(size_t total) { this->total = total; }
+
 bool SortedPart::add(uint64_t av, uint64_t bv) {
     size_t len = size() / 2;
     size_t i = 0;
@@ -192,10 +196,10 @@ FileConf_::FileConf_(size_t size) : parts(size) {}
 
 void FileConf_::save(const char *path) {
     Encoding enc;
-    enc.put((uint8_t)0x10).put((uint16_t)name->len).put(name);
+    enc.put((uint8_t)0x10).put((uint16_t)filename->len).put(filename);
     enc.put((uint8_t)0x20).put((uint64_t)size);
-    if (md4.get()) {
-        enc.put((uint8_t)0x30).put((uint16_t)md4->len).put(md4);
+    if (emd4.get()) {
+        enc.put((uint8_t)0x30).put((uint16_t)emd4->len).put(emd4);
     }
     if (ed2k.size()) {
         enc.put((uint8_t)0x40).put((uint16_t)ed2k.size());
@@ -231,8 +235,8 @@ void FileConf_::read(const char *path) {
     while (dec.offset < data->len) {
         switch (dec.get<uint8_t, 1>()) {
             case 0x10: {
-                name = BuildData(dec.get<uint16_t, 2>(), true);
-                dec.get(name->data, name->len);
+                filename = BuildData(dec.get<uint16_t, 2>(), true);
+                dec.get(filename->data, filename->len);
                 break;
             }
             case 0x20: {
@@ -240,8 +244,8 @@ void FileConf_::read(const char *path) {
                 break;
             }
             case 0x30: {
-                md4 = BuildHash(dec.get<uint16_t, 2>());
-                dec.get(md4->data, md4->len);
+                emd4 = BuildHash(dec.get<uint16_t, 2>());
+                dec.get(emd4->data, emd4->len);
                 break;
             }
             case 0x40: {
@@ -302,7 +306,7 @@ int FileConf_::readhash(const char *path, bool bmd4, bool bmd5, bool bsha1) {
             throw LFail(strlen(path) + 64, "FileConf_ read hash open path(%s) fail", path);
         }
         auto fname = boost::filesystem::path(path).filename();
-        name = BuildData(fname.c_str(), fname.size());
+        filename = BuildData(fname.c_str(), fname.size());
         size = file.tellg();
         file.seekg(0);
         char buf[9728];
@@ -333,8 +337,8 @@ int FileConf_::readhash(const char *path, bool bmd4, bool bmd5, bool bsha1) {
             }
         }
         if (bmd4) {
-            md4.set(MD4_DIGEST_LENGTH);
-            MD4_Final((unsigned char *)md4->data, &fmd4);
+            emd4.set(MD4_DIGEST_LENGTH);
+            MD4_Final((unsigned char *)emd4->data, &fmd4);
         }
         if (bmd5) {
             md5.set(MD5_DIGEST_LENGTH);
@@ -348,13 +352,19 @@ int FileConf_::readhash(const char *path, bool bmd4, bool bmd5, bool bsha1) {
         return 0;
     } catch (...) {
         file.close();
-        return -1;
+        throw LFail(strlen(path) + 64, "FileConf_ read hash path(%s) fail", path);
     }
 }
 
 std::vector<uint8_t> FileConf_::parsePartStatus(size_t plen) { return parts.parsePartStatus(plen); }
 
 FileConf BuildFileConf(size_t size) { return FileConf(new FileConf_(size)); }
+
+FileConf BuildFileConf(const char *path, bool bmd4, bool bmd5, bool bsha1) {
+    auto fc = FileConf(new FileConf_());
+    fc->readhash(path, bmd4, bmd5, bsha1);
+    return fc;
+}
 
 File::File(boost::filesystem::path spath, size_t size) : fc(size) {
     this->spath = spath;
@@ -382,7 +392,128 @@ std::vector<uint8_t> File::parsePartStatus(size_t plen) { return fc.parsePartSta
 
 bool File::valid() {}
 
- void FDataDb_::init(const char *spath) { SQLite_::init(spath, FS_VER_SQL()); }
+FData BuildFData(const char *spath) {
+    auto fc = BuildFileConf(spath, true, true, true);
+    auto fd = FData(new FData_());
+    fd->sha1 = fc->sha1;
+    fd->md5 = fc->md5;
+    fd->emd4 = fc->emd4;
+    fd->filename = fc->filename;
+    fd->size = fc->size;
+    auto fpath = boost::filesystem::path(spath);
+    if (fpath.has_extension()) {
+        auto ext = fpath.extension();
+        fd->format = BuildData(ext.c_str(), ext.size());
+    }
+    fd->location = BuildData(spath, strlen(spath));
+    fd->status = FDSS_SHARING;
+    return fd;
+}
+
+FDataDb_::FDataDb_() : butils::tools::SQLite_(FDSD_VER) {}
+
+void FDataDb_::init(const char *spath) { SQLite_::init(spath, FS_VER_SQL()); }
+
+int FDataDb_::count(int status) { return intv("select count(*) from ex_file where status=%d", status); }
+
+std::vector<FData> FDataDb_::list(int status, int skip, int limit) {
+    std::vector<FData> fs;
+    auto stmt = prepare(
+        "select tid,sha,md5,emd4,filename,size,format,location,duration,bitrate,codec,authors,description,album,status "
+        " from ex_file where status=%d limit %d,%d",
+        status, skip, limit);
+    while (stmt->step()) {
+        int idx = 0;
+        auto file = FData(new FData_);
+        file->tid = stmt->intv(idx++);
+        auto sha1 = stmt->blobv(idx++);
+        file->sha1 = BuildHash(sha1);
+        auto md5 = stmt->blobv(idx++);
+        ;
+        file->md5 = BuildHash(md5);
+        auto emd4 = stmt->blobv(idx++);
+        file->emd4 = BuildHash(emd4);
+        file->filename = stmt->stringv(idx++);
+        file->size = stmt->intv(idx++);
+        file->format = stmt->stringv(idx++);
+        file->location = stmt->stringv(idx++);
+        file->duration = stmt->floatv(idx++);
+        file->bitrate = stmt->floatv(idx++);
+        file->codec = stmt->stringv(idx++);
+        file->authors = stmt->stringv(idx++);
+        file->description = stmt->stringv(idx++);
+        file->album = stmt->stringv(idx++);
+        file->status = (int)stmt->intv(idx++);
+        fs.push_back(file);
+    }
+    return fs;
+}
+
+uint64_t FDataDb_::add(FData &task) {
+    auto stmt = prepare(
+        "insert into ex_file ("
+        "tid,sha,md5,emd4,filename,size,format,location,duration,bitrate,codec,authors,description,album,status"
+        ") values ("
+        "?,?,?,?,?,?,?,?,?,?,?,?,?,?,?"
+        ") ");
+    int idx = 1;
+    stmt->bind(idx++);
+    if (task->sha1.get()) {
+        stmt->bind(idx++, task->sha1);
+    } else {
+        stmt->bind(idx++);
+    }
+    if (task->md5.get()) {
+        stmt->bind(idx++, task->md5);
+    } else {
+        stmt->bind(idx++);
+    }
+    if (task->emd4.get()) {
+        stmt->bind(idx++, task->emd4);
+    } else {
+        stmt->bind(idx++);
+    }
+    stmt->bind(idx++, task->filename);
+    stmt->bind(idx++, (sqlite3_int64)task->size);
+    if (task->format.get()) {
+        stmt->bind(idx++, task->format);
+    } else {
+        stmt->bind(idx++);
+    }
+    if (task->location.get()) {
+        stmt->bind(idx++, task->location);
+    } else {
+        stmt->bind(idx++);
+    }
+    stmt->bind(idx++, task->duration);
+    stmt->bind(idx++, task->bitrate);
+    if (task->codec.get()) {
+        stmt->bind(idx++, task->codec);
+    } else {
+        stmt->bind(idx++);
+    }
+    if (task->authors.get()) {
+        stmt->bind(idx++, task->authors);
+    } else {
+        stmt->bind(idx++);
+    }
+    if (task->description.get()) {
+        stmt->bind(idx++, task->description);
+    } else {
+        stmt->bind(idx++);
+    }
+    if (task->album.get()) {
+        stmt->bind(idx++, task->album);
+    } else {
+        stmt->bind(idx++);
+    }
+    stmt->bind(idx++, task->status);
+    stmt->step();
+    stmt->finalize();
+    return SQLite_::intv("select last_insert_rowid()");
+}
+
+void FDataDb_::remove(uint64_t tid) { SQLite_::exec("delete from ex_file where tid=%d", tid); }
 
 FTaskDb_::FTaskDb_() : butils::tools::SQLite_(FTSD_VER) {}
 

@@ -70,6 +70,7 @@ create table ex_env
 /*==============================================================*/
 create table ex_file
 (
+   tid                  int not null auto_increment,
    sha                  blob,
    md5                  blob,
    emd4                 blob,

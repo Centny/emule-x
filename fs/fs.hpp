@@ -51,6 +51,7 @@ class Hash : public Data {
 };
 Hash BuildHash(size_t len = 16);
 Hash BuildHash(const char *buf, size_t len = 16);
+Hash BuildHash(Data &data);
 
 std::string hash_tos(const char *hash);
 
@@ -86,9 +87,9 @@ class SortedPart : public std::vector<uint64_t> {
 
 class FileConf_ {
    public:
-    Data name;               // 0x10
+    Data filename;           // 0x10
     uint64_t size;           // 0x20
-    Hash md4;                // 0x30
+    Hash emd4;               // 0x30
     std::vector<Hash> ed2k;  // 0x40
     Hash md5;                // 0x50
     Hash sha1;               // 0x60
@@ -100,11 +101,12 @@ class FileConf_ {
     virtual bool add(uint64_t av, uint64_t bv);
     virtual bool exists(size_t offset, size_t len);
     virtual bool isdone();
-    virtual int readhash(const char *path, bool bmd4 = false, bool bmd5 = false, bool bsha1 = false);
+    virtual int readhash(const char *path, bool bemd4 = false, bool bmd5 = false, bool bsha1 = false);
     virtual std::vector<uint8_t> parsePartStatus(size_t plen = ED2K_PART_L);
 };
 typedef boost::shared_ptr<FileConf_> FileConf;
-FileConf BuildFileConf(size_t size);
+FileConf BuildFileConf(size_t size = 0);
+FileConf BuildFileConf(const char *path, bool bmd4 = true, bool bmd5 = true, bool bsha1 = true);
 
 class File {
    public:
@@ -134,6 +136,7 @@ class FileManager {
 std::map<int, const char *> FS_VER_SQL();
 class FData_ {
    public:
+    uint64_t tid;
     Hash sha1;
     Hash md5;
     Hash emd4;
@@ -146,19 +149,22 @@ class FData_ {
     Data codec;
     Data authors;
     Data description;
-    int status=0;
+    Data album;
+    int status = 0;
 };
 typedef boost::shared_ptr<FData_> FData;
+FData BuildFData(const char *spath);
 
- class FDataDb_ : public SQLite_ {
+class FDataDb_ : public SQLite_ {
    public:
+    FDataDb_();
     virtual void init(const char *spath);
-     virtual int count(int status = FDSS_SHARING);
-     virtual std::vector<FData> list(int status = FDSS_SHARING, int skip = 0, int limit = 30);
-     virtual uint64_t add(FData &task);
-     virtual void remove(uint64_t tid);
+    virtual int count(int status = FDSS_SHARING);
+    virtual std::vector<FData> list(int status = FDSS_SHARING, int skip = 0, int limit = 30);
+    virtual uint64_t add(FData &file);
+    virtual void remove(uint64_t tid);
 };
-    typedef boost::shared_ptr<FDataDb_> FDataDb;
+typedef boost::shared_ptr<FDataDb_> FDataDb;
 //
 #define FTSS_DONE 200
 #define FTSS_RUNNING 100

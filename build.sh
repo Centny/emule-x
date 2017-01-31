@@ -26,7 +26,7 @@ if [ "$1" = "test" -o "$1" = "testc" ];then
     echo "All test done..."
     rm -rf report
     mkdir -p report/html
-    gcovr --html --html-details -o report/html/coverage.html -r . -v build/emule-x.build/Default/emule_x.build/ 1>c.log
+    gcovr --html --html-details -o report/html/coverage.html -r . -v build/emule-x.build/Default/emule_x.build/ 1>build/c.log
     echo "Build converage report done..."
 fi
 

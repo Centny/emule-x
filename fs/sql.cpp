@@ -17,6 +17,7 @@ namespace fs {
 /*==============================================================*/\
 create table ex_file\
 (\
+   tid                  integer primary key autoincrement,\
    sha                  blob,\
    md5                  blob,\
    emd4                 blob,\
