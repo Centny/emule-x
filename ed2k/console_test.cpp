@@ -26,6 +26,8 @@ class Ed2kTestH : public Evn_ {
     uint64_t os0, os0_, os1, os1_, os2, os2_;
 
    public:
+    void OnFail(ED2K_& ed2k, Address& addr) {}
+    void OnServerList(ED2K_& ed2k, uint64_t cid, ServerList srvs) {}
     void OnLogined(ED2K_& ed2k, uint64_t cid, uint32_t lid) { ed2k.search(cid, "Office", ecode); }
     void OnFoundFile(ED2K_& ed2k, uint64_t cid, FileList& fs) {
         printf("->%s->%s->%llu\n", fs.fs[0]->hash.tostring().c_str(), fs.fs[0]->name->data, fs.fs[0]->size);

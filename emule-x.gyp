@@ -17,6 +17,8 @@
                 '../boost-utils/boost-utils.gyp:boost_utils',
             ],
             'sources': [
+                'runner/runner.cpp',
+                'runner/runner.hpp',
                 'fs/fs.cpp',
                 'fs/fs.hpp',
                 'fs/sql.cpp',
@@ -66,6 +68,7 @@
                 "../boost-utils",
             ],
             'sources': [
+                'runner/runner_test.hpp',
                 'fs/fs_test.hpp',
                 'encoding/encoding_test.hpp',
                 'ed2k/ed2k_test.hpp',
@@ -115,6 +118,7 @@
                 'emule_x',
             ],
             'sources': [
+                'runner/runner_test_c.cpp',
                 'fs/fs_test.hpp',
                 'ed2k/console_test.cpp',
                 'test/console_test.cpp',
@@ -132,6 +136,7 @@
                             "-lboost_iostreams",
                             "-lboost_unit_test_framework",
                             "-lboost_utils",
+                            "-lboost_filesystem",
                             "-lemule_x",
                             "-lz",
                             "-lcrypto",

@@ -239,7 +239,7 @@ std::map<int, const char*> FS_VER_SQL() {
     ver[0] = FS_SQL_V0;
     return ver;
 }
-std::map<int, const char*> TS_VER_SQL() {
+std::map<int, const char*> EX_VER_SQL() {
     std::map<int, const char*> ver;
     ver[0] = TS_SQL_V0;
     return ver;

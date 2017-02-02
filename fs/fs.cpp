@@ -70,7 +70,7 @@ std::string Hash::tostring() {
 std::string hash_tos(const char *hash) {
     char buf[33];
     for (int i = 0; i < 16; i++) {
-        sprintf(buf + i * 2, "%02X", hash[i]);
+        sprintf(buf + i * 2, "%02x", (unsigned char)hash[i]);
     }
     return std::string(buf);
 }
@@ -81,7 +81,19 @@ Hash BuildHash(const char *buf, size_t len) { return Hash(buf, len); }
 
 Hash BuildHash(Data &data) { return Hash(data->data, data->len); }
 
-SortedPart::SortedPart(size_t total) { this->total = total; }
+Hash FromHex(const char *hex) {
+    size_t len = strlen(hex);
+    if (len < 2 || len % 2) {
+        return Hash();
+    }
+    auto bys = BuildHash(len / 2);
+    for (unsigned int i = 0; i < len; i += 2) {
+        bys->data[i / 2] = hex2int(hex[i]) * 16 + hex2int(hex[i + 1]);
+    }
+    return bys;
+}
+
+SortedPart::SortedPart(uint64_t total) { this->total = total; }
 
 bool SortedPart::add(uint64_t av, uint64_t bv) {
     size_t len = size() / 2;
@@ -115,7 +127,7 @@ bool SortedPart::add(uint64_t av, uint64_t bv) {
         return isdone();
     }
     for (; i < len - 1;) {
-        if (at(2 * i + 1) < at(2 * i + 2)) {
+        if (at(2 * i + 2) - at(2 * i + 1) > 1) {
             break;
         }
         if (at(2 * i + 1) >= at(2 * i + 3)) {
@@ -130,11 +142,11 @@ bool SortedPart::add(uint64_t av, uint64_t bv) {
     return isdone();
 }
 
-bool SortedPart::exists(size_t offset, size_t len) {
+bool SortedPart::exists(uint64_t av, uint64_t bv) {
     size_t pl = size() / 2;
     for (size_t i = 0; i < pl; i++) {
-        if (offset + len <= at(2 * i + 1)) {
-            if (offset >= at(2 * i + 1)) {
+        if (bv <= at(2 * i + 1)) {
+            if (av >= at(2 * i)) {
                 return true;
             } else {
                 return false;
@@ -192,214 +204,30 @@ std::vector<uint8_t> SortedPart::parsePartStatus(size_t plen) {
     return parts;
 }
 
-FileConf_::FileConf_(size_t size) : parts(size) {}
-
-void FileConf_::save(const char *path) {
-    Encoding enc;
-    enc.put((uint8_t)0x10).put((uint16_t)filename->len).put(filename);
-    enc.put((uint8_t)0x20).put((uint64_t)size);
-    if (emd4.get()) {
-        enc.put((uint8_t)0x30).put((uint16_t)emd4->len).put(emd4);
-    }
-    if (ed2k.size()) {
-        enc.put((uint8_t)0x40).put((uint16_t)ed2k.size());
-        BOOST_FOREACH (Hash &h, ed2k) {
-            enc.put((uint16_t)h->len);
-            enc.put(h);
+std::vector<Part> SortedPart::split(uint64_t max) {
+    std::vector<Part> ps;
+    size_t slen = total / max;
+    for (size_t i = 0; i < slen; i++) {
+        if (exists(i * max, i * max + max - 1)) {
+            continue;
+        } else {
+            ps.push_back(Part(i * max, i * max + max));
         }
     }
-    if (md5.get()) {
-        enc.put((uint8_t)0x50).put((uint16_t)md5->len).put(md5);
+    if (slen * max < total - 1 && !exists(slen * max, total - 1)) {
+        ps.push_back(Part(slen * max, total));
     }
-    if (sha1.get()) {
-        enc.put((uint8_t)0x60).put((uint16_t)sha1->len).put(sha1);
-    }
-    if (parts.size()) {
-        enc.put((uint8_t)0x70).put((uint16_t)parts.size());
-        BOOST_FOREACH (uint64_t &v, parts) { enc.put(v); }
-    }
-    std::fstream file;
-    file.open(path, std::fstream::out | std::fstream::trunc);
-    file.write(enc.cbuf(), enc.size());
-    file.close();
+    return ps;
 }
-
-void FileConf_::read(const char *path) {
-    std::fstream file;
-    file.open(path, std::fstream::in | std::fstream::ate);
-    Data data = BuildData(file.tellg());
-    file.seekg(0);
-    file.read(data->data, data->len);
-    file.close();
-    Decoding dec(data);
-    while (dec.offset < data->len) {
-        switch (dec.get<uint8_t, 1>()) {
-            case 0x10: {
-                filename = BuildData(dec.get<uint16_t, 2>(), true);
-                dec.get(filename->data, filename->len);
-                break;
-            }
-            case 0x20: {
-                size = dec.get<uint64_t, 8>();
-                break;
-            }
-            case 0x30: {
-                emd4 = BuildHash(dec.get<uint16_t, 2>());
-                dec.get(emd4->data, emd4->len);
-                break;
-            }
-            case 0x40: {
-                ed2k.clear();
-                uint16_t pc = dec.get<uint16_t, 2>();
-                for (size_t i = 0; i < pc; i++) {
-                    Hash h = BuildHash(dec.get<uint16_t, 2>());
-                    dec.get(h->data, h->len);
-                    ed2k.push_back(h);
-                }
-                break;
-            }
-            case 0x50: {
-                md5 = BuildHash(dec.get<uint16_t, 2>());
-                dec.get(md5->data, md5->len);
-                break;
-            }
-            case 0x60: {
-                sha1 = BuildHash(dec.get<uint16_t, 2>());
-                dec.get(sha1->data, sha1->len);
-                break;
-            }
-            case 0x70: {
-                parts.clear();
-                uint16_t pc = dec.get<uint16_t, 2>();
-                for (size_t i = 0; i < pc; i++) {
-                    parts.push_back(dec.get<uint64_t, 8>());
-                }
-                break;
-            }
-        }
-    }
-}
-
-bool FileConf_::add(uint64_t av, uint64_t bv) { return parts.add(av, bv); }
-
-bool FileConf_::exists(size_t offset, size_t len) { return parts.exists(offset, len); }
-
-bool FileConf_::isdone() { return parts.isdone(); }
-
-int FileConf_::readhash(const char *path, bool bmd4, bool bmd5, bool bsha1) {
-    std::fstream file;
-    try {
-        MD4_CTX fmd4;
-        if (bmd4) {
-            MD4_Init(&fmd4);
-        }
-        MD5_CTX fmd5;
-        if (bmd5) {
-            MD5_Init(&fmd5);
-        }
-        SHA_CTX fsha;
-        if (bsha1) {
-            SHA1_Init(&fsha);
-        }
-        file.open(path, std::fstream::in | std::fstream::ate);
-        if (!file.is_open()) {
-            throw LFail(strlen(path) + 64, "FileConf_ read hash open path(%s) fail", path);
-        }
-        auto fname = boost::filesystem::path(path).filename();
-        filename = BuildData(fname.c_str(), fname.size());
-        size = file.tellg();
-        file.seekg(0);
-        char buf[9728];
-        size_t readed = 0;
-        unsigned char digest[MD4_DIGEST_LENGTH];
-        while (!file.eof()) {
-            MD4_CTX pmd4;
-            if (bmd4) {
-                MD4_Init(&pmd4);
-            }
-            for (int i = 0; i < 1000 && !file.eof(); i++) {
-                file.read(buf, 9728);
-                readed = file.gcount();
-                if (bmd4) {
-                    MD4_Update(&pmd4, buf, readed);
-                }
-                if (bmd5) {
-                    MD5_Update(&fmd5, buf, readed);
-                }
-                if (bsha1) {
-                    SHA1_Update(&fsha, buf, readed);
-                }
-            }
-            if (bmd4) {
-                MD4_Final(digest, &pmd4);
-                ed2k.push_back(BuildHash((const char *)digest, MD4_DIGEST_LENGTH));
-                MD4_Update(&fmd4, digest, MD4_DIGEST_LENGTH);
-            }
-        }
-        if (bmd4) {
-            emd4.set(MD4_DIGEST_LENGTH);
-            MD4_Final((unsigned char *)emd4->data, &fmd4);
-        }
-        if (bmd5) {
-            md5.set(MD5_DIGEST_LENGTH);
-            MD5_Final((unsigned char *)md5->data, &fmd5);
-        }
-        if (bsha1) {
-            sha1.set(SHA_DIGEST_LENGTH);
-            SHA1_Final((unsigned char *)sha1->data, &fsha);
-        }
-        file.close();
-        return 0;
-    } catch (...) {
-        file.close();
-        throw LFail(strlen(path) + 64, "FileConf_ read hash path(%s) fail", path);
-    }
-}
-
-std::vector<uint8_t> FileConf_::parsePartStatus(size_t plen) { return parts.parsePartStatus(plen); }
-
-FileConf BuildFileConf(size_t size) { return FileConf(new FileConf_(size)); }
-
-FileConf BuildFileConf(const char *path, bool bmd4, bool bmd5, bool bsha1) {
-    auto fc = FileConf(new FileConf_());
-    fc->readhash(path, bmd4, bmd5, bsha1);
-    return fc;
-}
-
-File::File(boost::filesystem::path spath, size_t size) : fc(size) {
-    this->spath = spath;
-    this->tpath = boost::filesystem::path(spath.string() + ".xdm");
-    this->cpath = boost::filesystem::path(spath.string() + ".xcm");
-}
-bool File::exists(size_t offset, size_t len) { return fc.exists(offset, len); }
-
-bool File::write(size_t offset, Data data) {
-    fs->seekp(offset);
-    fs->write(data->data, data->len);
-    bool done = fc.add(offset, offset + data->len);
-    fc.save(cpath.c_str());
-    return done;
-}
-
-void File::read(size_t offset, Data data) {
-    fs->seekg(offset);
-    fs->read(data->data, data->len);
-}
-
-bool File::isdone() { return fc.isdone(); }
-
-std::vector<uint8_t> File::parsePartStatus(size_t plen) { return fc.parsePartStatus(plen); }
-
-bool File::valid() {}
 
 FData BuildFData(const char *spath) {
     auto fc = BuildFileConf(spath, true, true, true);
     auto fd = FData(new FData_());
-    fd->sha1 = fc->sha1;
-    fd->md5 = fc->md5;
-    fd->emd4 = fc->emd4;
-    fd->filename = fc->filename;
-    fd->size = fc->size;
+    fd->sha1 = fc->fd->sha1;
+    fd->md5 = fc->fd->md5;
+    fd->emd4 = fc->fd->emd4;
+    fd->filename = fc->fd->filename;
+    fd->size = fc->fd->size;
     auto fpath = boost::filesystem::path(spath);
     if (fpath.has_extension()) {
         auto ext = fpath.extension();
@@ -416,12 +244,8 @@ void FDataDb_::init(const char *spath) { SQLite_::init(spath, FS_VER_SQL()); }
 
 int FDataDb_::count(int status) { return intv("select count(*) from ex_file where status=%d", status); }
 
-std::vector<FData> FDataDb_::list(int status, int skip, int limit) {
+std::vector<FData> parseFDataStmt(STMT stmt) {
     std::vector<FData> fs;
-    auto stmt = prepare(
-        "select tid,sha,md5,emd4,filename,size,format,location,duration,bitrate,codec,authors,description,album,status "
-        " from ex_file where status=%d limit %d,%d",
-        status, skip, limit);
     while (stmt->step()) {
         int idx = 0;
         auto file = FData(new FData_);
@@ -447,6 +271,14 @@ std::vector<FData> FDataDb_::list(int status, int skip, int limit) {
         fs.push_back(file);
     }
     return fs;
+}
+
+std::vector<FData> FDataDb_::list(int status, int skip, int limit) {
+    auto stmt = prepare(
+        "select tid,sha,md5,emd4,filename,size,format,location,duration,bitrate,codec,authors,description,album,status "
+        " from ex_file where status=%d limit %d,%d",
+        status, skip, limit);
+    return parseFDataStmt(stmt);
 }
 
 uint64_t FDataDb_::add(FData &task) {
@@ -515,13 +347,57 @@ uint64_t FDataDb_::add(FData &task) {
 
 void FDataDb_::remove(uint64_t tid) { SQLite_::exec("delete from ex_file where tid=%d", tid); }
 
-FTaskDb_::FTaskDb_() : butils::tools::SQLite_(FTSD_VER) {}
+FData FDataDb_::find(Hash &hash, int type) {
+    STMT stmt;
+    switch (type) {
+        case 0:
+            stmt = prepare(
+                "select "
+                "tid,sha,md5,emd4,filename,size,format,location,duration,bitrate,codec,authors,description,album,"
+                "status "
+                " from ex_file where sha=?");
+            break;
+        case 1:
+            stmt = prepare(
+                "select "
+                "tid,sha,md5,emd4,filename,size,format,location,duration,bitrate,codec,authors,description,album,"
+                "status "
+                " from ex_file where md5=?");
+            break;
+        case 2:
+            stmt = prepare(
+                "select "
+                "tid,sha,md5,emd4,filename,size,format,location,duration,bitrate,codec,authors,description,album,"
+                "status "
+                " from ex_file where emd4=?");
+            break;
+        default:
+            throw Fail("FDataDb_ find unknow type(%d)", type);
+            break;
+    }
+    stmt->bind(1, hash);
+    auto fs = parseFDataStmt(stmt);
+    if (fs.size()) {
+        return fs[0];
+    } else {
+        return FData();
+    }
+}
 
-void FTaskDb_::init(const char *spath) { SQLite_::init(spath, TS_VER_SQL()); }
+void FDataDb_::updateFilename(uint64_t tid, Data filename) {
+    auto stmt = prepare("update ex_file set filename=? where tid=?");
+    stmt->bind(1, filename);
+    stmt->bind(2, (sqlite3_int64)tid);
+    stmt->step();
+}
 
-int FTaskDb_::count(int status) { return intv("select count(*) from ex_task where status=%d", status); }
+EmuleX_::EmuleX_() : butils::tools::SQLite_(EX_DB_VER) {}
 
-std::vector<FTask> FTaskDb_::list(int status, int skip, int limit) {
+void EmuleX_::init(const char *spath) { SQLite_::init(spath, EX_VER_SQL()); }
+
+int EmuleX_::countTask(int status) { return intv("select count(*) from ex_task where status=%d", status); }
+
+std::vector<FTask> EmuleX_::listTask(int status, int skip, int limit) {
     std::vector<FTask> ts;
     auto stmt =
         prepare("select tid,filename,location,size,done,format,used,status from ex_task where status=%d limit %d,%d",
@@ -542,15 +418,320 @@ std::vector<FTask> FTaskDb_::list(int status, int skip, int limit) {
     return ts;
 }
 
-uint64_t FTaskDb_::add(FTask &task) {
+uint64_t EmuleX_::addTask(FTask &task) {
+    auto format = "";
+    if (task->format.get()) {
+        format = task->format->data;
+    }
     SQLite_::exec(
         "insert into ex_task (tid,filename,location,size,done,format,used,status) values "
         "(null,'%s','%s',%lu,%lu,'%s',%lu,%d)",
-        task->filename->data, task->location->data, task->size, task->done, task->format->data, task->used,
-        task->status);
-    return SQLite_::intv("select last_insert_rowid()");
+        task->filename->data, task->location->data, task->size, task->done, format, task->used, task->status);
+    auto tid = SQLite_::intv("select last_insert_rowid()");
+    task->tid = tid;
+    return tid;
 }
 
-void FTaskDb_::remove(uint64_t tid) { SQLite_::exec("delete from ex_task where tid=%d", tid); }
+FTask EmuleX_::addTask(boost::filesystem::path dir, FData &file) {
+    auto task = FTask(new FTask_);
+    task->filename = file->filename;
+    task->location = BuildData(dir.c_str(), dir.size());
+    task->size = file->size;
+    task->format = file->format;
+    task->status = FTSS_RUNNING;
+    addTask(task);
+    return task;
+}
+
+void EmuleX_::removeTask(uint64_t tid) { SQLite_::exec("delete from ex_task where tid=%d", tid); }
+
+FileConf_::FileConf_(size_t size) : parts(size) { fd = FData(new FData_); }
+
+void FileConf_::save(const char *path) {
+    Encoding enc;
+    enc.put((uint8_t)0x10).put((uint16_t)fd->filename->len).put(fd->filename);
+    enc.put((uint8_t)0x20).put((uint64_t)fd->size);
+    if (fd->emd4.get()) {
+        enc.put((uint8_t)0x30).put((uint16_t)fd->emd4->len).put(fd->emd4);
+    }
+    if (ed2k.size()) {
+        enc.put((uint8_t)0x40).put((uint16_t)ed2k.size());
+        BOOST_FOREACH (Hash &h, ed2k) {
+            enc.put((uint16_t)h->len);
+            enc.put(h);
+        }
+    }
+    if (fd->md5.get()) {
+        enc.put((uint8_t)0x50).put((uint16_t)fd->md5->len).put(fd->md5);
+    }
+    if (fd->sha1.get()) {
+        enc.put((uint8_t)0x60).put((uint16_t)fd->sha1->len).put(fd->sha1);
+    }
+    if (parts.size()) {
+        enc.put((uint8_t)0x70).put((uint16_t)parts.size());
+        BOOST_FOREACH (uint64_t &v, parts) { enc.put(v); }
+    }
+    std::fstream file;
+    file.open(path, std::fstream::out | std::fstream::trunc);
+    file.write(enc.cbuf(), enc.size());
+    file.close();
+}
+
+void FileConf_::read(const char *path) {
+    std::fstream file;
+    file.open(path, std::fstream::in | std::fstream::ate);
+    if (!file.is_open()) {
+        throw Fail("FileConf_ open path(%s) fail", path);
+    }
+    Data data = BuildData(file.tellg());
+    file.seekg(0);
+    file.read(data->data, data->len);
+    file.close();
+    Decoding dec(data);
+    while (dec.offset < data->len) {
+        switch (dec.get<uint8_t, 1>()) {
+            case 0x10: {
+                fd->filename = BuildData(dec.get<uint16_t, 2>(), true);
+                dec.get(fd->filename->data, fd->filename->len);
+                break;
+            }
+            case 0x20: {
+                fd->size = dec.get<uint64_t, 8>();
+                parts.total = fd->size;
+                break;
+            }
+            case 0x30: {
+                fd->emd4 = BuildHash(dec.get<uint16_t, 2>());
+                dec.get(fd->emd4->data, fd->emd4->len);
+                break;
+            }
+            case 0x40: {
+                ed2k.clear();
+                uint16_t pc = dec.get<uint16_t, 2>();
+                for (size_t i = 0; i < pc; i++) {
+                    Hash h = BuildHash(dec.get<uint16_t, 2>());
+                    dec.get(h->data, h->len);
+                    ed2k.push_back(h);
+                }
+                break;
+            }
+            case 0x50: {
+                fd->md5 = BuildHash(dec.get<uint16_t, 2>());
+                dec.get(fd->md5->data, fd->md5->len);
+                break;
+            }
+            case 0x60: {
+                fd->sha1 = BuildHash(dec.get<uint16_t, 2>());
+                dec.get(fd->sha1->data, fd->sha1->len);
+                break;
+            }
+            case 0x70: {
+                parts.clear();
+                uint16_t pc = dec.get<uint16_t, 2>();
+                for (size_t i = 0; i < pc; i++) {
+                    parts.push_back(dec.get<uint64_t, 8>());
+                }
+                break;
+            }
+        }
+    }
+}
+
+bool FileConf_::add(uint64_t av, uint64_t bv) { return parts.add(av, bv); }
+
+bool FileConf_::exists(size_t offset, size_t len) { return parts.exists(offset, len); }
+
+bool FileConf_::isdone() { return parts.isdone(); }
+
+int FileConf_::readhash(const char *path, bool bmd4, bool bmd5, bool bsha1) {
+    std::fstream file;
+    try {
+        MD4_CTX fmd4;
+        if (bmd4) {
+            MD4_Init(&fmd4);
+        }
+        MD5_CTX fmd5;
+        if (bmd5) {
+            MD5_Init(&fmd5);
+        }
+        SHA_CTX fsha;
+        if (bsha1) {
+            SHA1_Init(&fsha);
+        }
+        file.open(path, std::fstream::in | std::fstream::ate);
+        if (!file.is_open()) {
+            throw LFail(strlen(path) + 64, "FileConf_ read hash open path(%s) fail", path);
+        }
+        auto fname = boost::filesystem::path(path).filename();
+        fd->filename = BuildData(fname.c_str(), fname.size());
+        fd->size = file.tellg();
+        parts.total = fd->size;
+        file.seekg(0);
+        char buf[9728];
+        size_t readed = 0;
+        unsigned char digest[MD4_DIGEST_LENGTH];
+        while (!file.eof()) {
+            MD4_CTX pmd4;
+            if (bmd4) {
+                MD4_Init(&pmd4);
+            }
+            for (int i = 0; i < 1000 && !file.eof(); i++) {
+                file.read(buf, 9728);
+                readed = file.gcount();
+                if (bmd4) {
+                    MD4_Update(&pmd4, buf, readed);
+                }
+                if (bmd5) {
+                    MD5_Update(&fmd5, buf, readed);
+                }
+                if (bsha1) {
+                    SHA1_Update(&fsha, buf, readed);
+                }
+            }
+            if (bmd4) {
+                MD4_Final(digest, &pmd4);
+                ed2k.push_back(BuildHash((const char *)digest, MD4_DIGEST_LENGTH));
+                MD4_Update(&fmd4, digest, MD4_DIGEST_LENGTH);
+            }
+        }
+        if (bmd4) {
+            fd->emd4.set(MD4_DIGEST_LENGTH);
+            MD4_Final((unsigned char *)fd->emd4->data, &fmd4);
+        }
+        if (bmd5) {
+            fd->md5.set(MD5_DIGEST_LENGTH);
+            MD5_Final((unsigned char *)fd->md5->data, &fmd5);
+        }
+        if (bsha1) {
+            fd->sha1.set(SHA_DIGEST_LENGTH);
+            SHA1_Final((unsigned char *)fd->sha1->data, &fsha);
+        }
+        file.close();
+        return 0;
+    } catch (...) {
+        file.close();
+        throw LFail(strlen(path) + 64, "FileConf_ read hash path(%s) fail", path);
+    }
+}
+
+std::vector<uint8_t> FileConf_::parsePartStatus(size_t plen) { return parts.parsePartStatus(plen); }
+
+std::vector<Part> FileConf_::split(uint64_t max) { return parts.split(max); }
+
+FileConf BuildFileConf(size_t size) { return FileConf(new FileConf_(size)); }
+
+FileConf BuildFileConf(const char *path, bool bmd4, bool bmd5, bool bsha1) {
+    auto fc = FileConf(new FileConf_(0));
+    fc->readhash(path, bmd4, bmd5, bsha1);
+    return fc;
+}
+
+File_::File_(boost::filesystem::path dir, FData &file) {
+    this->fc = FileConf(new FileConf_(file->size));
+    this->fc->fd = file;
+    this->spath = dir.append(file->filename->data);
+    this->tpath = boost::filesystem::path(spath.string() + ".xdm");
+    this->cpath = boost::filesystem::path(spath.string() + ".xcm");
+    this->fc->save(cpath.c_str());
+    this->fs = new std::fstream();
+    this->fs->open(tpath.c_str(), std::fstream::binary | std::fstream::out);
+    if (!this->fs->is_open()) {
+        throw Fail("File_ open file(%s) fail", tpath.c_str());
+    }
+    if (this->fs->tellg() < 1) {
+        fs->seekp(this->fc->fd->size - 1);
+        fs->write("\0", 1);
+    }
+}
+
+File_::File_(boost::filesystem::path dir, Data &filename) {
+    this->fc = FileConf(new FileConf_(0));
+    this->spath = dir.append(filename->data);
+    this->tpath = boost::filesystem::path(spath.string() + ".xdm");
+    this->cpath = boost::filesystem::path(spath.string() + ".xcm");
+    this->fc->read(this->cpath.c_str());
+    this->fs = new std::fstream();
+    this->fs->open(tpath.c_str(), std::fstream::binary | std::fstream::out);
+    if (!this->fs->is_open()) {
+        throw Fail("File_ open file(%s) fail", tpath.c_str());
+    }
+    if (this->fs->tellg() < 1) {
+        fs->seekp(this->fc->fd->size - 1);
+        fs->write("\0", 1);
+    }
+}
+
+File_::~File_() { close(); }
+
+bool File_::exists(size_t av, size_t bv) { return fc->exists(av, bv); }
+
+bool File_::write(size_t offset, Data data) { return write(offset, data->data, data->len); }
+
+bool File_::write(size_t offset, const char *data, size_t len) {
+    fs->seekp(offset);
+    fs->write(data, len);
+    bool done = fc->add(offset, offset + len);
+    fc->save(cpath.c_str());
+    return done;
+    return false;
+}
+
+void File_::read(size_t offset, Data data) {
+    fs->seekg(offset);
+    fs->read(data->data, data->len);
+}
+
+bool File_::isdone() { return fc->isdone(); }
+
+std::vector<uint8_t> File_::parsePartStatus(size_t plen) { return fc->parsePartStatus(plen); }
+
+std::vector<Part> File_::split(uint64_t max) { return fc->split(max); }
+
+bool File_::valid() {}
+
+void File_::close() {
+    if (fs) {
+        fs->close();
+        fs = 0;
+    }
+}
+
+FileManager_::FileManager_(const char *emulex, const char *fdb) {
+    ts = EmuleX(new EmuleX_);
+    fs = FDataDb(new FDataDb_);
+    ts->init(emulex);
+    fs->init(fdb);
+}
+
+File FileManager_::findOpenedF(Hash &hash) { return opened.at(hash); }
+
+File FileManager_::open(boost::filesystem::path dir, FData &file) {
+    auto f = File(new File_(dir, file));
+    if (f->fc->fd->sha1.get()) {
+        opened[f->fc->fd->sha1] = f;
+    }
+    if (f->fc->fd->md5.get()) {
+        opened[f->fc->fd->md5] = f;
+    }
+    if (f->fc->fd->emd4.get()) {
+        opened[f->fc->fd->emd4] = f;
+    }
+    return f;
+}
+
+File FileManager_::open(boost::filesystem::path dir, Data &filename) {
+    auto f = File(new File_(dir, filename));
+    if (f->fc->fd->sha1.get()) {
+        opened[f->fc->fd->sha1] = f;
+    }
+    if (f->fc->fd->md5.get()) {
+        opened[f->fc->fd->md5] = f;
+    }
+    if (f->fc->fd->emd4.get()) {
+        opened[f->fc->fd->emd4] = f;
+    }
+    return f;
+}
+//
 }
 }

@@ -101,7 +101,11 @@ bool ED2K_::OnConn(TCP s, const boost::system::error_code &ec) {
     return true;
 }
 
-void ED2K_::OnClose(TCP s, const boost::system::error_code &ec) { this->remove(s); }
+void ED2K_::OnClose(TCP s, const boost::system::error_code &ec) {
+    auto srv = esrv[s->Id()];
+    H->OnFail(*this, srv.addr);
+    this->remove(s);
+}
 
 int ED2K_::OnCmd(Cmd c) {
     int code = 0;
@@ -133,6 +137,7 @@ int ED2K_::OnCmd(Cmd c) {
             ServerList srvs;
             srvs.parse(c->data, c->header->data[0]);
             V_LOG_I("ED2K parse server list with %ld server found", srvs.srvs.size());
+            H->OnServerList(*this, c->Id(), srvs);
             return code;
         }
         case OP_SERVERIDENT: {
@@ -295,11 +300,11 @@ void ED2K_::uprequest(uint64_t cid, Hash &hash, boost::system::error_code &ec) {
     args.hash = hash;
     write(cid, args.encode(), ec);
     if (ec) {
-        V_LOG_W("ED2K send upload by hash(%s) to %s fail with code(%d)", hash.tostring().c_str(),
+        V_LOG_W("ED2K send upload request by hash(%s) to %s fail with code(%d)", hash.tostring().c_str(),
                 addr_cs(esrv[cid].addr).c_str(), ec.value());
     } else {
-        V_LOG_D("ED2K send upload by hash(%s) to %s success", hash.tostring().c_str(), addr_cs(esrv[cid].addr).c_str(),
-                cid);
+        V_LOG_D("ED2K send upload request by cid(%lu),hash(%s) to %s success", cid, hash.tostring().c_str(),
+                addr_cs(esrv[cid].addr).c_str());
     }
 }
 void ED2K_::rfilepart(uint64_t cid, Hash &hash, std::vector<FilePart> &parts, boost::system::error_code &ec) {
@@ -359,6 +364,13 @@ void ED2K_::hashset(uint64_t cid, Hash &hash, boost::system::error_code &ec) {
         V_LOG_D("ED2K send hashset request by hash(%s) to %s success", hash.tostring().c_str(),
                 addr_cs(esrv[cid].addr).c_str(), cid);
     }
+}
+void ED2K_::close(uint64_t cid) {
+    if (tcs.find(cid) == tcs.end()) {
+        return;
+    }
+    auto con = tcs[cid];
+    con->close();
 }
 //////////end ed2k//////////
 }

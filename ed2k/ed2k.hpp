@@ -32,6 +32,8 @@ enum con_t {
 std::string con_t_cs(con_t c);
 class Evn_ {
    public:
+    virtual void OnFail(ED2K_ &ed2k, Address &addr) = 0;
+    virtual void OnServerList(ED2K_ &ed2k, uint64_t cid, ServerList srvs) = 0;
     virtual void OnLogined(ED2K_ &ed2k, uint64_t cid, uint32_t lid) = 0;
     virtual void OnFoundFile(ED2K_ &ed2k, uint64_t cid, FileList &fs) = 0;
     virtual void OnFoundSource(ED2K_ &ed2k, uint64_t cid, FoundSource &fs) = 0;
@@ -40,7 +42,7 @@ class Evn_ {
     virtual void OnSending(ED2K_ &ed2k, uint64_t cid, SendingPart &part) = 0;
     virtual void OnHashsetAnswer(ED2K_ &ed2k, uint64_t cid, HashsetAnswer &hs) = 0;
     virtual void OnFidAnswer(ED2K_ &ed2k, uint64_t cid, FidAnswer &fid) = 0;
-    virtual void OnFileStatusAnswer(ED2K_ &ed2k, uint64_t cid, FileStatus &fid) = 0;
+    virtual void OnFileStatusAnswer(ED2K_ &ed2k, uint64_t cid, FileStatus &status) = 0;
 };
 typedef boost::shared_ptr<Evn_> Evn;
 typedef std::pair<uint16_t, uint16_t> Port;
@@ -106,6 +108,9 @@ class ED2K_ : public CmdH_, public ConH_, public boost::enable_shared_from_this<
     virtual void rfilestatus(uint64_t cid, Hash &hash, std::vector<uint8_t> &status, uint16_t source,
                              boost::system::error_code &ec);
     virtual void hashset(uint64_t cid, Hash &hash, boost::system::error_code &ec);
+
+   public:
+    virtual void close(uint64_t cid);
 };
 
 //////////end ed2k//////////
