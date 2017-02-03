@@ -35,7 +35,10 @@ void runr() {
 }
 
 int runner_c(int argc, char** argv) {
-    std::cout << 259650 + 10403 << std::endl;
+    //    auto fc=FileConf(new FileConf_(0));
+    //    fc->readhash("a.7z.xdm", ALL_HASH);
+    //    fc->ed2k[0]->print();
+    //    std::cout << 259650 + 10403 << std::endl;
     boost::filesystem::remove_all(boost::filesystem::path("fs.db"));
     boost::filesystem::remove_all(boost::filesystem::path("emulex.db"));
     boost::filesystem::remove_all(boost::filesystem::path("a.7z.xdm"));

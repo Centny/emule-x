@@ -133,12 +133,24 @@ void Runner_::OnSending(ed2k::ED2K_& ed2k, uint64_t cid, SendingPart& part) {
     }
     auto ss = sending[cid];
     auto done = ss.file->write(part.start, part.part);
-    //    if(done){
-    ss.file->fs->flush();
-    //    }
     V_LOG_D("Runner_ receive file(%s) part(%lu,%lu) done(%d)", ss.hash.tostring().c_str(), part.start, part.part->len,
             done);
+    if (done) {
+        if (ss.file->valid(EMD4)) {
+            V_LOG_D("Runner_ valid file(%s) passed", ss.hash.tostring().c_str());
+            sendDone(ed2k, cid);
+        } else {
+            V_LOG_D("Runner_ valid file(%s) fail", ss.hash.tostring().c_str());
+        }
+    }
 }
+
+void Runner_::sendDone(ed2k::ED2K_& ed2k, uint64_t cid) {
+    auto ss = sending[cid];
+    sending.erase(cid);
+    fmgr->done(ss.hash);
+}
+
 void Runner_::OnHashsetAnswer(ed2k::ED2K_& ed2k, uint64_t cid, HashsetAnswer& hs) {}
 void Runner_::OnFidAnswer(ed2k::ED2K_& ed2k, uint64_t cid, FidAnswer& fid) {}
 void Runner_::OnFileStatusAnswer(ed2k::ED2K_& ed2k, uint64_t cid, FileStatus& status) {}

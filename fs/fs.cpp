@@ -221,7 +221,7 @@ std::vector<Part> SortedPart::split(uint64_t max) {
 }
 
 FData BuildFData(const char *spath) {
-    auto fc = BuildFileConf(spath, true, true, true);
+    auto fc = BuildFileConf(spath, ALL_HASH);
     auto fd = FData(new FData_());
     fd->sha1 = fc->fd->sha1;
     fd->md5 = fc->fd->md5;
@@ -543,75 +543,83 @@ bool FileConf_::exists(size_t offset, size_t len) { return parts.exists(offset, 
 
 bool FileConf_::isdone() { return parts.isdone(); }
 
-int FileConf_::readhash(const char *path, bool bmd4, bool bmd5, bool bsha1) {
+int FileConf_::readhash(const char *path, HashType type) {
     std::fstream file;
     try {
-        MD4_CTX fmd4;
-        if (bmd4) {
-            MD4_Init(&fmd4);
-        }
-        MD5_CTX fmd5;
-        if (bmd5) {
-            MD5_Init(&fmd5);
-        }
-        SHA_CTX fsha;
-        if (bsha1) {
-            SHA1_Init(&fsha);
-        }
         file.open(path, std::fstream::in | std::fstream::ate);
         if (!file.is_open()) {
             throw LFail(strlen(path) + 64, "FileConf_ read hash open path(%s) fail", path);
         }
         auto fname = boost::filesystem::path(path).filename();
         fd->filename = BuildData(fname.c_str(), fname.size());
-        fd->size = file.tellg();
-        parts.total = fd->size;
-        file.seekg(0);
-        char buf[9728];
-        size_t readed = 0;
-        unsigned char digest[MD4_DIGEST_LENGTH];
-        while (!file.eof()) {
-            MD4_CTX pmd4;
-            if (bmd4) {
-                MD4_Init(&pmd4);
-            }
-            for (int i = 0; i < 1000 && !file.eof(); i++) {
-                file.read(buf, 9728);
-                readed = file.gcount();
-                if (bmd4) {
-                    MD4_Update(&pmd4, buf, readed);
-                }
-                if (bmd5) {
-                    MD5_Update(&fmd5, buf, readed);
-                }
-                if (bsha1) {
-                    SHA1_Update(&fsha, buf, readed);
-                }
-            }
-            if (bmd4) {
-                MD4_Final(digest, &pmd4);
-                ed2k.push_back(BuildHash((const char *)digest, MD4_DIGEST_LENGTH));
-                MD4_Update(&fmd4, digest, MD4_DIGEST_LENGTH);
-            }
-        }
-        if (bmd4) {
-            fd->emd4.set(MD4_DIGEST_LENGTH);
-            MD4_Final((unsigned char *)fd->emd4->data, &fmd4);
-        }
-        if (bmd5) {
-            fd->md5.set(MD5_DIGEST_LENGTH);
-            MD5_Final((unsigned char *)fd->md5->data, &fmd5);
-        }
-        if (bsha1) {
-            fd->sha1.set(SHA_DIGEST_LENGTH);
-            SHA1_Final((unsigned char *)fd->sha1->data, &fsha);
-        }
+        readhash(&file, type);
         file.close();
-        return 0;
     } catch (...) {
         file.close();
         throw LFail(strlen(path) + 64, "FileConf_ read hash path(%s) fail", path);
     }
+}
+int FileConf_::readhash(std::fstream *file, HashType type) {
+    MD4_CTX fmd4;
+    if (HASH_IS(type, EMD4)) {
+        MD4_Init(&fmd4);
+    }
+    MD5_CTX fmd5;
+    if (HASH_IS(type, MD5)) {
+        MD5_Init(&fmd5);
+    }
+    SHA_CTX fsha;
+    if (HASH_IS(type, SHA1)) {
+        SHA1_Init(&fsha);
+    }
+    fd->size = file->tellg();
+    parts.total = fd->size;
+    file->seekg(0);
+    file->seekp(0);
+    char buf[9728];
+    size_t readed = 0;
+    unsigned char digest[MD4_DIGEST_LENGTH];
+    while (!file->eof()) {
+        MD4_CTX pmd4;
+        if (HASH_IS(type, EMD4)) {
+            MD4_Init(&pmd4);
+        }
+        for (int i = 0; i < 1000 && !file->eof(); i++) {
+            file->read(buf, 9728);
+            readed = file->gcount();
+            if (HASH_IS(type, EMD4)) {
+                MD4_Update(&pmd4, buf, readed);
+            }
+            if (HASH_IS(type, MD5)) {
+                MD5_Update(&fmd5, buf, readed);
+            }
+            if (HASH_IS(type, SHA1)) {
+                SHA1_Update(&fsha, buf, readed);
+            }
+            printf("-->%ld\n", readed);
+        }
+        if (HASH_IS(type, EMD4)) {
+            MD4_Final(digest, &pmd4);
+            ed2k.push_back(BuildHash((const char *)digest, MD4_DIGEST_LENGTH));
+            MD4_Update(&fmd4, digest, MD4_DIGEST_LENGTH);
+        }
+    }
+    if (HASH_IS(type, EMD4)) {
+        fd->emd4.set(MD4_DIGEST_LENGTH);
+        MD4_Final((unsigned char *)fd->emd4->data, &fmd4);
+        if (ed2k.size() == 1) {
+            fd->emd4 = ed2k[0];
+        }
+    }
+    if (HASH_IS(type, MD5)) {
+        fd->md5.set(MD5_DIGEST_LENGTH);
+        MD5_Final((unsigned char *)fd->md5->data, &fmd5);
+    }
+    if (HASH_IS(type, SHA1)) {
+        fd->sha1.set(SHA_DIGEST_LENGTH);
+        SHA1_Final((unsigned char *)fd->sha1->data, &fsha);
+    }
+    return 0;
 }
 
 std::vector<uint8_t> FileConf_::parsePartStatus(size_t plen) { return parts.parsePartStatus(plen); }
@@ -620,9 +628,9 @@ std::vector<Part> FileConf_::split(uint64_t max) { return parts.split(max); }
 
 FileConf BuildFileConf(size_t size) { return FileConf(new FileConf_(size)); }
 
-FileConf BuildFileConf(const char *path, bool bmd4, bool bmd5, bool bsha1) {
+FileConf BuildFileConf(const char *path, HashType type) {
     auto fc = FileConf(new FileConf_(0));
-    fc->readhash(path, bmd4, bmd5, bsha1);
+    fc->readhash(path, type);
     return fc;
 }
 
@@ -634,7 +642,7 @@ File_::File_(boost::filesystem::path dir, FData &file) {
     this->cpath = boost::filesystem::path(spath.string() + ".xcm");
     this->fc->save(cpath.c_str());
     this->fs = new std::fstream();
-    this->fs->open(tpath.c_str(), std::fstream::binary | std::fstream::out);
+    this->fs->open(tpath.c_str(), std::fstream::out | std::fstream::binary);
     if (!this->fs->is_open()) {
         throw Fail("File_ open file(%s) fail", tpath.c_str());
     }
@@ -651,7 +659,7 @@ File_::File_(boost::filesystem::path dir, Data &filename) {
     this->cpath = boost::filesystem::path(spath.string() + ".xcm");
     this->fc->read(this->cpath.c_str());
     this->fs = new std::fstream();
-    this->fs->open(tpath.c_str(), std::fstream::binary | std::fstream::out);
+    this->fs->open(tpath.c_str(), std::fstream::out | std::fstream::binary);
     if (!this->fs->is_open()) {
         throw Fail("File_ open file(%s) fail", tpath.c_str());
     }
@@ -670,10 +678,9 @@ bool File_::write(size_t offset, Data data) { return write(offset, data->data, d
 bool File_::write(size_t offset, const char *data, size_t len) {
     fs->seekp(offset);
     fs->write(data, len);
-    bool done = fc->add(offset, offset + len);
+    bool done = fc->add(offset, offset + len - 1);
     fc->save(cpath.c_str());
     return done;
-    return false;
 }
 
 void File_::read(size_t offset, Data data) {
@@ -687,13 +694,35 @@ std::vector<uint8_t> File_::parsePartStatus(size_t plen) { return fc->parsePartS
 
 std::vector<Part> File_::split(uint64_t max) { return fc->split(max); }
 
-bool File_::valid() {}
+bool File_::valid(HashType type) {
+    fs->flush();
+    auto cfc = FileConf(new FileConf_(0));
+    cfc->readhash(tpath.c_str(), type);
+    if (HASH_IS(type, EMD4)) {
+        fc->fd->emd4->print();
+        cfc->fd->emd4->print();
+        return cfc->fd->emd4->cmp(fc->fd->emd4);
+    }
+    if (HASH_IS(type, MD5)) {
+        return cfc->fd->md5->cmp(fc->fd->md5);
+    }
+    if (HASH_IS(type, SHA1)) {
+        return cfc->fd->sha1->cmp(fc->fd->sha1);
+    }
+    return false;
+}
 
 void File_::close() {
     if (fs) {
         fs->close();
         fs = 0;
     }
+}
+
+void File_::done() {
+    close();
+    boost::filesystem::rename(tpath, spath);
+    boost::filesystem::remove_all(cpath);
 }
 
 FileManager_::FileManager_(const char *emulex, const char *fdb) {
@@ -731,6 +760,12 @@ File FileManager_::open(boost::filesystem::path dir, Data &filename) {
         opened[f->fc->fd->emd4] = f;
     }
     return f;
+}
+
+void FileManager_::done(Hash &hash) {
+    auto file = findOpenedF(hash);
+    file->done();
+    opened.erase(hash);
 }
 //
 }

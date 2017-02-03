@@ -34,6 +34,13 @@ using namespace emulex::encoding;
 #define EMULEX_TSDB_VER 1
 //
 #define EMULEX_FORMAT_L 8
+
+typedef int HashType;
+const HashType EMD4 = 1;
+const HashType MD5 = 1 << 1;
+const HashType SHA1 = 1 << 2;
+const HashType ALL_HASH = EMD4 | MD5 | SHA1;
+#define HASH_IS(type, T) (type & T) == T
 /*
  the ed2k hash
  */
@@ -173,13 +180,14 @@ class FileConf_ {
     virtual bool add(uint64_t av, uint64_t bv);
     virtual bool exists(size_t offset, size_t len);
     virtual bool isdone();
-    virtual int readhash(const char *path, bool bemd4 = false, bool bmd5 = false, bool bsha1 = false);
+    virtual int readhash(const char *path, HashType type);
+    virtual int readhash(std::fstream *file, HashType type);
     virtual std::vector<uint8_t> parsePartStatus(size_t plen = ED2K_PART_L);
     virtual std::vector<Part> split(uint64_t max = 512000);
 };
 typedef boost::shared_ptr<FileConf_> FileConf;
 FileConf BuildFileConf(size_t size);
-FileConf BuildFileConf(const char *path, bool bmd4 = true, bool bmd5 = true, bool bsha1 = true);
+FileConf BuildFileConf(const char *path, HashType type = ALL_HASH);
 
 //
 class File_ {
@@ -201,8 +209,9 @@ class File_ {
     virtual bool isdone();
     virtual std::vector<uint8_t> parsePartStatus(size_t plen = ED2K_PART_L);
     virtual std::vector<Part> split(uint64_t max = 512000);
-    virtual bool valid();
+    virtual bool valid(HashType type);
     virtual void close();
+    virtual void done();
 };
 typedef boost::shared_ptr<File_> File;
 
@@ -218,6 +227,7 @@ class FileManager_ {
     File findOpenedF(Hash &hash);
     File open(boost::filesystem::path dir, FData &file);
     File open(boost::filesystem::path dir, Data &filename);
+    virtual void done(Hash &hash);
 };
 typedef boost::shared_ptr<FileManager_> FileManager;
 }

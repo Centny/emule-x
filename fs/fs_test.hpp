@@ -448,7 +448,7 @@ BOOST_AUTO_TEST_CASE(ReadHash) {
     std::cout << pp << std::endl;
     std::cout << bb << std::endl;
     emulex::fs::FileConf fc = emulex::fs::BuildFileConf(100);
-    BOOST_CHECK_EQUAL(fc->readhash("rh.dat", true, true, true), 0);
+    BOOST_CHECK_EQUAL(fc->readhash("rh.dat", ALL_HASH), 0);
     BOOST_CHECK_EQUAL(strcmp(fc->fd->filename->data, "rh.dat"), 0);
     BOOST_CHECK_EQUAL(fc->fd->size, 4);
     BOOST_CHECK_EQUAL(fc->ed2k.size(), 1);

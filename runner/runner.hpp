@@ -48,6 +48,8 @@ class Runner_ : public ed2k::Evn_, public boost::enable_shared_from_this<Runner_
    public:
     Runner_(asio::io_service &ios, Hash &uuid, Data &name, FileManager &fm);
     virtual void start(std::list<Address> srvs);
+
+   public:
     virtual void OnFail(ed2k::ED2K_ &ed2k, Address &addr);
     virtual void OnServerList(ed2k::ED2K_ &ed2k, uint64_t cid, ServerList srvs);
     virtual void OnLogined(ed2k::ED2K_ &ed2k, uint64_t cid, uint32_t lid);
@@ -64,6 +66,9 @@ class Runner_ : public ed2k::Evn_, public boost::enable_shared_from_this<Runner_
     virtual FTask addTask(boost::filesystem::path dir, Hash &hash, Data &filename, size_t size);
     virtual FTask addTask(boost::filesystem::path dir, FData &file);
     virtual File startTask(boost::filesystem::path dir, FData &file);
+
+   protected:
+    virtual void sendDone(ed2k::ED2K_ &ed2k, uint64_t cid);
 };
 typedef boost::shared_ptr<Runner_> Runner;
 }
