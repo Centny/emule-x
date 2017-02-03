@@ -8,26 +8,32 @@
 
 #ifndef runner_hpp
 #define runner_hpp
+#include <boost/foreach.hpp>
+#include <boost/lexical_cast.hpp>
 #include <list>
 #include <set>
 #include "../ed2k/ed2k.hpp"
 #include "../fs/fs.hpp"
+#include "../ws/ws.hpp"
 
 namespace emulex {
 namespace runner {
 using namespace emulex::fs;
+using namespace emulex::ws;
 using namespace butils::netw;
 using namespace emulex::protocol;
-class Sending {
+class Sending_ {
    public:
     Hash hash;
     std::vector<Part> parts;
-    size_t sended;
+    size_t sended = 0;
     File file;
 
    public:
     std::vector<FilePart> ed2kpart();
 };
+typedef boost::shared_ptr<Sending_> Sending;
+//
 class Runner_ : public ed2k::Evn_, public boost::enable_shared_from_this<Runner_> {
    public:
    public:
@@ -71,6 +77,22 @@ class Runner_ : public ed2k::Evn_, public boost::enable_shared_from_this<Runner_
     virtual void sendDone(ed2k::ED2K_ &ed2k, uint64_t cid);
 };
 typedef boost::shared_ptr<Runner_> Runner;
+//
+class WsWrapper_ {
+   public:
+    Runner runner;
+
+   protected:
+    Reply mcode(int code, std::string msg);
+
+   public:
+    WsWrapper_(Runner runner);
+    Reply addTask(Con, Args);
+    Reply listTask(Con, Args);
+    void hand(WS ws);
+};
+typedef boost::shared_ptr<WsWrapper_> WsWrapper;
+//
 }
 }
 

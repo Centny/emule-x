@@ -321,27 +321,27 @@ BOOST_AUTO_TEST_CASE(PartSplit) {
         auto sp = fp.split();
         BOOST_CHECK_EQUAL(sp.size(), 1);
         BOOST_CHECK_EQUAL(sp[0].first, 0);
-        BOOST_CHECK_EQUAL(sp[0].second, 99);
+        BOOST_CHECK_EQUAL(sp[0].second, 100);
     }
     {
         emulex::fs::SortedPart fp(1000);
         auto sp = fp.split(100);
         BOOST_CHECK_EQUAL(sp.size(), 10);
         BOOST_CHECK_EQUAL(sp[0].first, 0);
-        BOOST_CHECK_EQUAL(sp[0].second, 99);
+        BOOST_CHECK_EQUAL(sp[0].second, 100);
         BOOST_CHECK_EQUAL(sp[9].first, 900);
-        BOOST_CHECK_EQUAL(sp[9].second, 999);
+        BOOST_CHECK_EQUAL(sp[9].second, 1000);
     }
     {
         emulex::fs::SortedPart fp(1010);
         auto sp = fp.split(100);
         BOOST_CHECK_EQUAL(sp.size(), 11);
         BOOST_CHECK_EQUAL(sp[0].first, 0);
-        BOOST_CHECK_EQUAL(sp[0].second, 99);
+        BOOST_CHECK_EQUAL(sp[0].second, 100);
         BOOST_CHECK_EQUAL(sp[9].first, 900);
-        BOOST_CHECK_EQUAL(sp[9].second, 999);
+        BOOST_CHECK_EQUAL(sp[9].second, 1000);
         BOOST_CHECK_EQUAL(sp[10].first, 1000);
-        BOOST_CHECK_EQUAL(sp[10].second, 1009);
+        BOOST_CHECK_EQUAL(sp[10].second, 1010);
     }
     {
         emulex::fs::SortedPart fp(1010);
@@ -354,17 +354,31 @@ BOOST_AUTO_TEST_CASE(PartSplit) {
         auto sp1 = fp.split(100);
         BOOST_CHECK_EQUAL(sp1.size(), 10);
         BOOST_CHECK_EQUAL(sp1[0].first, 100);
-        BOOST_CHECK_EQUAL(sp1[0].second, 199);
+        BOOST_CHECK_EQUAL(sp1[0].second, 200);
         BOOST_CHECK_EQUAL(sp1[9].first, 1000);
-        BOOST_CHECK_EQUAL(sp1[9].second, 1009);
+        BOOST_CHECK_EQUAL(sp1[9].second, 1010);
         //
         fp.add(sp[10].first, sp[10].second);
         auto sp2 = fp.split(100);
         BOOST_CHECK_EQUAL(sp2.size(), 9);
         BOOST_CHECK_EQUAL(sp2[0].first, 100);
-        BOOST_CHECK_EQUAL(sp2[0].second, 199);
+        BOOST_CHECK_EQUAL(sp2[0].second, 200);
         BOOST_CHECK_EQUAL(sp2[8].first, 900);
-        BOOST_CHECK_EQUAL(sp2[8].second, 999);
+        BOOST_CHECK_EQUAL(sp2[8].second, 1000);
+    }
+    {
+        emulex::fs::SortedPart fp(926285824);
+        auto sp = fp.split(926285824);
+        BOOST_CHECK_EQUAL(sp.size(), 1);
+        BOOST_CHECK_EQUAL(sp[0].first, 0);
+        BOOST_CHECK_EQUAL(sp[0].second, 926285824);
+    }
+    {
+        emulex::fs::SortedPart fp(270053);
+        auto sp = fp.split(926285824);
+        BOOST_CHECK_EQUAL(sp.size(), 1);
+        BOOST_CHECK_EQUAL(sp[0].first, 0);
+        BOOST_CHECK_EQUAL(sp[0].second, 270053);
     }
     printf("PartSplit done...\n");
 }

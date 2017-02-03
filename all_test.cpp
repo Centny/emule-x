@@ -13,3 +13,5 @@
 #include "encoding/encoding_test.hpp"
 #include "fs/fs_test.hpp"
 #include "protocol/ed2k_protocol_test.hpp"
+#include "runner/runner_test.hpp"
+#include "ws/server_test.hpp"

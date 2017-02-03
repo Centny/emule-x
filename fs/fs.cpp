@@ -231,7 +231,8 @@ FData BuildFData(const char *spath) {
     auto fpath = boost::filesystem::path(spath);
     if (fpath.has_extension()) {
         auto ext = fpath.extension();
-        fd->format = BuildData(ext.c_str(), ext.size());
+        auto extc = ext.c_str();
+        fd->format = BuildData(extc, strlen(extc));
     }
     fd->location = BuildData(spath, strlen(spath));
     fd->status = FDSS_SHARING;
@@ -435,7 +436,8 @@ uint64_t EmuleX_::addTask(FTask &task) {
 FTask EmuleX_::addTask(boost::filesystem::path dir, FData &file) {
     auto task = FTask(new FTask_);
     task->filename = file->filename;
-    task->location = BuildData(dir.c_str(), dir.size());
+    auto dirc = dir.c_str();
+    task->location = BuildData(dirc, strlen(dirc));
     task->size = file->size;
     task->format = file->format;
     task->status = FTSS_RUNNING;
@@ -548,10 +550,12 @@ int FileConf_::readhash(const char *path, HashType type) {
     try {
         file.open(path, std::fstream::in | std::fstream::ate);
         if (!file.is_open()) {
+            file.close();
             throw LFail(strlen(path) + 64, "FileConf_ read hash open path(%s) fail", path);
         }
         auto fname = boost::filesystem::path(path).filename();
-        fd->filename = BuildData(fname.c_str(), fname.size());
+        auto fnamec = fname.c_str();
+        fd->filename = BuildData(fnamec, strlen(fnamec));
         readhash(&file, type);
         file.close();
     } catch (...) {
@@ -596,7 +600,6 @@ int FileConf_::readhash(std::fstream *file, HashType type) {
             if (HASH_IS(type, SHA1)) {
                 SHA1_Update(&fsha, buf, readed);
             }
-            printf("-->%ld\n", readed);
         }
         if (HASH_IS(type, EMD4)) {
             MD4_Final(digest, &pmd4);
@@ -699,8 +702,6 @@ bool File_::valid(HashType type) {
     auto cfc = FileConf(new FileConf_(0));
     cfc->readhash(tpath.c_str(), type);
     if (HASH_IS(type, EMD4)) {
-        fc->fd->emd4->print();
-        cfc->fd->emd4->print();
         return cfc->fd->emd4->cmp(fc->fd->emd4);
     }
     if (HASH_IS(type, MD5)) {
@@ -722,6 +723,12 @@ void File_::close() {
 void File_::done() {
     close();
     boost::filesystem::rename(tpath, spath);
+    boost::filesystem::remove_all(cpath);
+}
+
+void File_::clear() {
+    close();
+    boost::filesystem::remove_all(tpath);
     boost::filesystem::remove_all(cpath);
 }
 

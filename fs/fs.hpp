@@ -212,6 +212,7 @@ class File_ {
     virtual bool valid(HashType type);
     virtual void close();
     virtual void done();
+    virtual void clear();
 };
 typedef boost::shared_ptr<File_> File;
 
