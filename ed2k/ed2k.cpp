@@ -215,6 +215,7 @@ int ED2K_::OnCmd(Cmd c) {
             H->OnFileStatusAnswer(*this, c->Id(), fa);
             return code;
         }
+            //
     }
     c->data->print(cbuf);
     V_LOG_W("ED2K receive unknow message:%s", cbuf);
@@ -371,6 +372,11 @@ void ED2K_::close(uint64_t cid) {
     }
     auto con = tcs[cid];
     con->close();
+}
+
+void ED2K_::release() {
+    typedef std::map<uint64_t, TCP>::value_type tcsv;
+    BOOST_FOREACH (const tcsv &t, this->tcs) { t.second->close(); }
 }
 //////////end ed2k//////////
 }

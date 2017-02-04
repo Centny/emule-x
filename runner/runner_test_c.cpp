@@ -28,8 +28,7 @@ void runr() {
         srvs.push_back(Address(cip2long("14.23.162.173"), 4122));
         runner->start(srvs);
         auto ws = WS(new WS_(ios, 9823, "."));
-        auto wraper = WsWrapper(new WsWrapper_(runner));
-        wraper->hand(ws);
+        auto wraper = WsWrapper(new WsWrapper_(ws, runner));
         //
         //    auto fhash = emulex::fs::FromHex("AA4BA9F8740C596D24DC02CAE0C56CDC");
         //    auto fname = BuildData("a.7z", 5, true);

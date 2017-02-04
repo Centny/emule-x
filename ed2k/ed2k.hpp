@@ -9,6 +9,7 @@
 #ifndef ed2k_hpp
 #define ed2k_hpp
 #include <boost-utils/boost-utils.hpp>
+#include <boost/foreach.hpp>
 #include "../protocol/ed2k_protocol.hpp"
 
 namespace emulex {
@@ -111,6 +112,7 @@ class ED2K_ : public CmdH_, public ConH_, public boost::enable_shared_from_this<
 
    public:
     virtual void close(uint64_t cid);
+    virtual void release();
 };
 
 //////////end ed2k//////////

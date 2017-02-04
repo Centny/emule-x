@@ -8,6 +8,7 @@
 
 #ifndef runner_hpp
 #define runner_hpp
+#include <json-c/json.h>
 #include <boost/foreach.hpp>
 #include <boost/lexical_cast.hpp>
 #include <list>
@@ -22,21 +23,32 @@ using namespace emulex::fs;
 using namespace emulex::ws;
 using namespace butils::netw;
 using namespace emulex::protocol;
+class Runner_;
+class REvn_ {
+   public:
+    virtual void OnProcess(Runner_ &r, FTask task, int cons, float speed){};
+    virtual void OnDone(Runner_ &r, FTask task){};
+};
+typedef boost::shared_ptr<REvn_> REvn;
+//
 class Sending_ {
    public:
-    Hash hash;
+    //    Hash hash;
+    FTask task;
     std::vector<Part> parts;
     size_t sended = 0;
     File file;
+    std::map<uint64_t, uint64_t> requested;
 
    public:
-    std::vector<FilePart> ed2kpart();
+    std::vector<FilePart> ed2kpart(uint64_t cid);
 };
 typedef boost::shared_ptr<Sending_> Sending;
 //
 class Runner_ : public ed2k::Evn_, public boost::enable_shared_from_this<Runner_> {
    public:
    public:
+    REvn H;
     Hash uuid;
     Data name;
     ed2k::ED2K ed2k;
@@ -48,6 +60,7 @@ class Runner_ : public ed2k::Evn_, public boost::enable_shared_from_this<Runner_
     std::map<Address, int> connected;
     std::map<Address, int> fail;
     std::map<uint64_t, Sending> sending;
+    std::map<FUUID, Sending, FUUIDComparer> singf;
     // w
     FileManager fmgr;
 
@@ -69,27 +82,33 @@ class Runner_ : public ed2k::Evn_, public boost::enable_shared_from_this<Runner_
     virtual void OnFileStatusAnswer(ed2k::ED2K_ &ed2k, uint64_t cid, FileStatus &status);
 
    public:
-    virtual FTask addTask(boost::filesystem::path dir, Hash &hash, Data &filename, size_t size);
-    virtual FTask addTask(boost::filesystem::path dir, FData &file);
-    virtual File startTask(boost::filesystem::path dir, FData &file);
+    virtual FTask addTask(Data &location, HashType type, Hash &emd4, Data &filename, size_t size);
+    virtual FTask addTask(const FUUID &uuid);
+    virtual Sending down(const FUUID &uuid);
+    virtual void release();
 
    protected:
     virtual void sendDone(ed2k::ED2K_ &ed2k, uint64_t cid);
+    virtual Sending open(const FUUID &uuid);
 };
 typedef boost::shared_ptr<Runner_> Runner;
 //
 class WsWrapper_ {
    public:
+    WS ws;
     Runner runner;
 
    protected:
     Reply mcode(int code, std::string msg);
 
    public:
-    WsWrapper_(Runner runner);
+    WsWrapper_(WS ws, Runner runner);
     Reply addTask(Con, Args);
     Reply listTask(Con, Args);
-    void hand(WS ws);
+
+   public:
+    virtual void OnProcess(Runner_ &r, FTask task, int cons, float speed);
+    virtual void OnDone(Runner_ &r, FTask task);
 };
 typedef boost::shared_ptr<WsWrapper_> WsWrapper;
 //

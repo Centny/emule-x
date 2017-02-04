@@ -193,6 +193,7 @@ BOOST_AUTO_TEST_CASE(FilePart) {
         fp.add(300, 400);
         fp.add(1000, 1100);
         BOOST_CHECK_EQUAL(fp.size(), 6);
+        fp.print();
         fp.add(150, 400);
         fp.print();
         BOOST_CHECK_EQUAL(fp.size(), 4);
@@ -418,21 +419,21 @@ BOOST_AUTO_TEST_CASE(PartStatus) {
 BOOST_AUTO_TEST_CASE(FileConf) {
     boost::filesystem::remove_all(boost::filesystem::path("xx.xcf"));
     emulex::fs::FileConf fc = emulex::fs::BuildFileConf(100);
-    fc->fd->filename = BuildData("testing", 7, true);
-    fc->fd->size = 100;
-    fc->fd->emd4 = BuildHash(16);
+    fc->filename = BuildData("testing", 7, true);
+    fc->size = 100;
+    fc->emd4 = BuildHash(16);
     fc->ed2k.push_back(BuildHash(16));
     fc->ed2k.push_back(BuildHash(16));
-    fc->fd->md5 = BuildHash(20);
-    fc->fd->sha1 = BuildHash(20);
+    fc->md5 = BuildHash(20);
+    fc->sha1 = BuildHash(20);
     fc->parts.add(100, 300);
     fc->save("xx.xcf");
     emulex::fs::FileConf fc2 = emulex::fs::BuildFileConf(100);
     fc2->read("xx.xcf");
-    fc->fd->filename->print();
-    fc2->fd->filename->print();
-    BOOST_CHECK_EQUAL(strcmp(fc->fd->filename->data, fc2->fd->filename->data), 0);
-    BOOST_CHECK_EQUAL(fc->fd->size, fc2->fd->size);
+    fc->filename->print();
+    fc2->filename->print();
+    BOOST_CHECK_EQUAL(strcmp(fc->filename->data, fc2->filename->data), 0);
+    BOOST_CHECK_EQUAL(fc->size, fc2->size);
     BOOST_CHECK_EQUAL(fc2->ed2k.size(), 2);
     BOOST_CHECK_EQUAL(fc2->parts.size(), 2);
     //
@@ -463,13 +464,13 @@ BOOST_AUTO_TEST_CASE(ReadHash) {
     std::cout << bb << std::endl;
     emulex::fs::FileConf fc = emulex::fs::BuildFileConf(100);
     BOOST_CHECK_EQUAL(fc->readhash("rh.dat", ALL_HASH), 0);
-    BOOST_CHECK_EQUAL(strcmp(fc->fd->filename->data, "rh.dat"), 0);
-    BOOST_CHECK_EQUAL(fc->fd->size, 4);
+    BOOST_CHECK_EQUAL(strcmp(fc->filename->data, "rh.dat"), 0);
+    BOOST_CHECK_EQUAL(fc->size, 4);
     BOOST_CHECK_EQUAL(fc->ed2k.size(), 1);
-    BOOST_CHECK_EQUAL(fc->fd->emd4->len, 16);
-    fc->fd->emd4->print();
-    fc->fd->md5->print();
-    fc->fd->sha1->print();
+    BOOST_CHECK_EQUAL(fc->emd4->len, 16);
+    fc->emd4->print();
+    fc->md5->print();
+    fc->sha1->print();
     printf("ReadHash done...\n");
 }
 
@@ -511,6 +512,31 @@ BOOST_AUTO_TEST_CASE(Data) {
     tdb->remove(tid);
     BOOST_CHECK_EQUAL(tdb->count(), 0);
     printf("File done...\n");
+}
+
+BOOST_AUTO_TEST_CASE(TestFUUID) {
+    std::map<FUUID, int, FUUIDComparer> vs;
+    auto uuid1 = FUUID(new FUUID_());
+    uuid1->filename = BuildData("a", 1);
+    auto uuid2 = FUUID(new FUUID_());
+    uuid2->filename = BuildData("a", 1);
+    auto uuid3 = FUUID(new FUUID_());
+    uuid3->filename = BuildData("b", 1);
+    vs[uuid1] = 1;
+    BOOST_CHECK_EQUAL(vs.find(uuid1) == vs.end(), 0);
+    BOOST_CHECK_EQUAL(vs.find(uuid2) == vs.end(), 0);
+    BOOST_CHECK_EQUAL(vs.find(uuid3) == vs.end(), 1);
+    auto hash = BuildHash(16);
+    auto uuid4 = FUUID(new FUUID_());
+    uuid4->emd4 = hash;
+    uuid4->location = BuildData(".", 1);
+    uuid4->filename = BuildData(".", 1);
+    uuid4->size = 4;
+    auto uuid5 = FUUID(new FUUID_());
+    uuid5->emd4 = hash;
+    vs[uuid4] = 2;
+    BOOST_CHECK_EQUAL(vs.find(uuid5) == vs.end(), 0);
+    printf("fuuid done...\n");
 }
 
 BOOST_AUTO_TEST_SUITE_END()

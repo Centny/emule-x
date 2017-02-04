@@ -7,9 +7,6 @@
 //
 
 #include "fs.hpp"
-#include <sqlite3.h>
-#include <boost/foreach.hpp>
-#include <fstream>
 
 namespace emulex {
 namespace fs {
@@ -99,7 +96,7 @@ bool SortedPart::add(uint64_t av, uint64_t bv) {
     size_t len = size() / 2;
     size_t i = 0;
     for (; i < len; i++) {
-        if ((long)(av - at(2 * i)) <= 1) {
+        if (av <= at(2 * i) + 1) {
             if (bv < at(2 * i)) {
                 insert(begin() + 2 * i, bv);
                 insert(begin() + 2 * i, av);
@@ -113,7 +110,7 @@ bool SortedPart::add(uint64_t av, uint64_t bv) {
             (*this)[2 * i + 1] = bv;
             break;
         }
-        if ((long)(av - at(2 * i + 1)) <= 1) {
+        if (av <= at(2 * i + 1) + 1) {
             if (bv <= at(2 * i + 1)) {
                 return false;
             }
@@ -127,7 +124,7 @@ bool SortedPart::add(uint64_t av, uint64_t bv) {
         return isdone();
     }
     for (; i < len - 1;) {
-        if (at(2 * i + 2) - at(2 * i + 1) > 1) {
+        if (at(2 * i + 2) > at(2 * i + 1) + 1) {
             break;
         }
         if (at(2 * i + 1) >= at(2 * i + 3)) {
@@ -220,14 +217,56 @@ std::vector<Part> SortedPart::split(uint64_t max) {
     return ps;
 }
 
+void FUUID_::cuuid(FUUID_ *v) {
+    this->sha1 = v->sha1;
+    this->md5 = v->md5;
+    this->emd4 = v->emd4;
+    this->filename = v->filename;
+    this->location = v->location;
+    this->size = v->size;
+}
+
+FUUID BuildFUUID(const Hash &hash, HashType type) {
+    auto uuid = FUUID(new FUUID_);
+    switch (type) {
+        case EMD4:
+            uuid->emd4 = hash;
+            break;
+        case MD5:
+            uuid->md5 = hash;
+            break;
+        case SHA1:
+            uuid->sha1 = hash;
+            break;
+        default:
+            throw Fail("Build FUUID fail with %s", "the type must in emd4/md5/sha1");
+    }
+    return uuid;
+}
+
+bool FUUIDComparer::operator()(const FUUID &first, const FUUID &second) const {
+    if (first->sha1.get() && second->sha1.get()) {
+        return DataComparer()(first->sha1, second->sha1);
+    }
+    if (first->md5.get() && second->md5.get()) {
+        return DataComparer()(first->md5, second->md5);
+    }
+    if (first->emd4.get() && second->emd4.get()) {
+        return DataComparer()(first->emd4, second->emd4);
+    }
+    if (first->location.get() && second->location.get() && !first->location->cmp(second->location)) {
+        return DataComparer()(first->location, second->location);
+    }
+    if (first->filename.get() && second->filename.get()) {
+        return DataComparer()(first->filename, second->filename);
+    }
+    return false;
+}
+
 FData BuildFData(const char *spath) {
     auto fc = BuildFileConf(spath, ALL_HASH);
     auto fd = FData(new FData_());
-    fd->sha1 = fc->fd->sha1;
-    fd->md5 = fc->fd->md5;
-    fd->emd4 = fc->fd->emd4;
-    fd->filename = fc->fd->filename;
-    fd->size = fc->fd->size;
+    fd->cuuid(fc.get());
     auto fpath = boost::filesystem::path(spath);
     if (fpath.has_extension()) {
         auto ext = fpath.extension();
@@ -400,9 +439,9 @@ int EmuleX_::countTask(int status) { return intv("select count(*) from ex_task w
 
 std::vector<FTask> EmuleX_::listTask(int status, int skip, int limit) {
     std::vector<FTask> ts;
-    auto stmt =
-        prepare("select tid,filename,location,size,done,format,used,status from ex_task where status=%d limit %d,%d",
-                status, skip, limit);
+    auto stmt = prepare(
+        "select tid,filename,location,size,done,format,used,status from ex_task where status=status&%d limit %d,%d",
+        status, skip, limit);
     while (stmt->step()) {
         int idx = 0;
         auto task = FTask(new FTask_);
@@ -433,13 +472,15 @@ uint64_t EmuleX_::addTask(FTask &task) {
     return tid;
 }
 
-FTask EmuleX_::addTask(boost::filesystem::path dir, FData &file) {
+FTask EmuleX_::addTask(const FUUID &uuid) {
     auto task = FTask(new FTask_);
-    task->filename = file->filename;
-    auto dirc = dir.c_str();
-    task->location = BuildData(dirc, strlen(dirc));
-    task->size = file->size;
-    task->format = file->format;
+    task->cuuid(uuid.get());
+boost:
+    filesystem::path filename(uuid->filename->data);
+    if (filename.has_extension()) {
+        auto extc = filename.extension().c_str();
+        task->format = BuildData(extc, strlen(extc));
+    }
     task->status = FTSS_RUNNING;
     addTask(task);
     return task;
@@ -447,14 +488,18 @@ FTask EmuleX_::addTask(boost::filesystem::path dir, FData &file) {
 
 void EmuleX_::removeTask(uint64_t tid) { SQLite_::exec("delete from ex_task where tid=%d", tid); }
 
-FileConf_::FileConf_(size_t size) : parts(size) { fd = FData(new FData_); }
+void EmuleX_::updateTask(uint64_t tid, int status) {
+    SQLite_::exec("update ex_task set status=%d where tid=%lu", status, tid);
+}
+
+FileConf_::FileConf_(size_t size) : parts(size) {}
 
 void FileConf_::save(const char *path) {
     Encoding enc;
-    enc.put((uint8_t)0x10).put((uint16_t)fd->filename->len).put(fd->filename);
-    enc.put((uint8_t)0x20).put((uint64_t)fd->size);
-    if (fd->emd4.get()) {
-        enc.put((uint8_t)0x30).put((uint16_t)fd->emd4->len).put(fd->emd4);
+    enc.put((uint8_t)0x10).put((uint16_t)filename->len).put(filename);
+    enc.put((uint8_t)0x20).put((uint64_t)size);
+    if (emd4.get()) {
+        enc.put((uint8_t)0x30).put((uint16_t)emd4->len).put(emd4);
     }
     if (ed2k.size()) {
         enc.put((uint8_t)0x40).put((uint16_t)ed2k.size());
@@ -463,11 +508,11 @@ void FileConf_::save(const char *path) {
             enc.put(h);
         }
     }
-    if (fd->md5.get()) {
-        enc.put((uint8_t)0x50).put((uint16_t)fd->md5->len).put(fd->md5);
+    if (md5.get()) {
+        enc.put((uint8_t)0x50).put((uint16_t)md5->len).put(md5);
     }
-    if (fd->sha1.get()) {
-        enc.put((uint8_t)0x60).put((uint16_t)fd->sha1->len).put(fd->sha1);
+    if (sha1.get()) {
+        enc.put((uint8_t)0x60).put((uint16_t)sha1->len).put(sha1);
     }
     if (parts.size()) {
         enc.put((uint8_t)0x70).put((uint16_t)parts.size());
@@ -493,18 +538,18 @@ void FileConf_::read(const char *path) {
     while (dec.offset < data->len) {
         switch (dec.get<uint8_t, 1>()) {
             case 0x10: {
-                fd->filename = BuildData(dec.get<uint16_t, 2>(), true);
-                dec.get(fd->filename->data, fd->filename->len);
+                filename = BuildData(dec.get<uint16_t, 2>(), true);
+                dec.get(filename->data, filename->len);
                 break;
             }
             case 0x20: {
-                fd->size = dec.get<uint64_t, 8>();
-                parts.total = fd->size;
+                size = dec.get<uint64_t, 8>();
+                parts.total = size;
                 break;
             }
             case 0x30: {
-                fd->emd4 = BuildHash(dec.get<uint16_t, 2>());
-                dec.get(fd->emd4->data, fd->emd4->len);
+                emd4 = BuildHash(dec.get<uint16_t, 2>());
+                dec.get(emd4->data, emd4->len);
                 break;
             }
             case 0x40: {
@@ -518,13 +563,13 @@ void FileConf_::read(const char *path) {
                 break;
             }
             case 0x50: {
-                fd->md5 = BuildHash(dec.get<uint16_t, 2>());
-                dec.get(fd->md5->data, fd->md5->len);
+                md5 = BuildHash(dec.get<uint16_t, 2>());
+                dec.get(md5->data, md5->len);
                 break;
             }
             case 0x60: {
-                fd->sha1 = BuildHash(dec.get<uint16_t, 2>());
-                dec.get(fd->sha1->data, fd->sha1->len);
+                sha1 = BuildHash(dec.get<uint16_t, 2>());
+                dec.get(sha1->data, sha1->len);
                 break;
             }
             case 0x70: {
@@ -555,9 +600,10 @@ int FileConf_::readhash(const char *path, HashType type) {
         }
         auto fname = boost::filesystem::path(path).filename();
         auto fnamec = fname.c_str();
-        fd->filename = BuildData(fnamec, strlen(fnamec));
-        readhash(&file, type);
+        filename = BuildData(fnamec, strlen(fnamec));
+        auto res = readhash(&file, type);
         file.close();
+        return res;
     } catch (...) {
         file.close();
         throw LFail(strlen(path) + 64, "FileConf_ read hash path(%s) fail", path);
@@ -576,8 +622,8 @@ int FileConf_::readhash(std::fstream *file, HashType type) {
     if (HASH_IS(type, SHA1)) {
         SHA1_Init(&fsha);
     }
-    fd->size = file->tellg();
-    parts.total = fd->size;
+    size = file->tellg();
+    parts.total = size;
     file->seekg(0);
     file->seekp(0);
     char buf[9728];
@@ -608,19 +654,19 @@ int FileConf_::readhash(std::fstream *file, HashType type) {
         }
     }
     if (HASH_IS(type, EMD4)) {
-        fd->emd4.set(MD4_DIGEST_LENGTH);
-        MD4_Final((unsigned char *)fd->emd4->data, &fmd4);
+        emd4.set(MD4_DIGEST_LENGTH);
+        MD4_Final((unsigned char *)emd4->data, &fmd4);
         if (ed2k.size() == 1) {
-            fd->emd4 = ed2k[0];
+            emd4 = ed2k[0];
         }
     }
     if (HASH_IS(type, MD5)) {
-        fd->md5.set(MD5_DIGEST_LENGTH);
-        MD5_Final((unsigned char *)fd->md5->data, &fmd5);
+        md5.set(MD5_DIGEST_LENGTH);
+        MD5_Final((unsigned char *)md5->data, &fmd5);
     }
     if (HASH_IS(type, SHA1)) {
-        fd->sha1.set(SHA_DIGEST_LENGTH);
-        SHA1_Final((unsigned char *)fd->sha1->data, &fsha);
+        sha1.set(SHA_DIGEST_LENGTH);
+        SHA1_Final((unsigned char *)sha1->data, &fsha);
     }
     return 0;
 }
@@ -637,10 +683,10 @@ FileConf BuildFileConf(const char *path, HashType type) {
     return fc;
 }
 
-File_::File_(boost::filesystem::path dir, FData &file) {
-    this->fc = FileConf(new FileConf_(file->size));
-    this->fc->fd = file;
-    this->spath = dir.append(file->filename->data);
+File_::File_(const FUUID &uuid) {
+    this->fc = FileConf(new FileConf_(uuid->size));
+    this->fc->cuuid(uuid.get());
+    this->spath = boost::filesystem::path(uuid->location->data).append(uuid->filename->data);
     this->tpath = boost::filesystem::path(spath.string() + ".xdm");
     this->cpath = boost::filesystem::path(spath.string() + ".xcm");
     this->fc->save(cpath.c_str());
@@ -650,27 +696,27 @@ File_::File_(boost::filesystem::path dir, FData &file) {
         throw Fail("File_ open file(%s) fail", tpath.c_str());
     }
     if (this->fs->tellg() < 1) {
-        fs->seekp(this->fc->fd->size - 1);
+        fs->seekp(this->fc->size - 1);
         fs->write("\0", 1);
     }
 }
 
-File_::File_(boost::filesystem::path dir, Data &filename) {
-    this->fc = FileConf(new FileConf_(0));
-    this->spath = dir.append(filename->data);
-    this->tpath = boost::filesystem::path(spath.string() + ".xdm");
-    this->cpath = boost::filesystem::path(spath.string() + ".xcm");
-    this->fc->read(this->cpath.c_str());
-    this->fs = new std::fstream();
-    this->fs->open(tpath.c_str(), std::fstream::out | std::fstream::binary);
-    if (!this->fs->is_open()) {
-        throw Fail("File_ open file(%s) fail", tpath.c_str());
-    }
-    if (this->fs->tellg() < 1) {
-        fs->seekp(this->fc->fd->size - 1);
-        fs->write("\0", 1);
-    }
-}
+// File_::File_(boost::filesystem::path dir, Data &filename) {
+//    this->fc = FileConf(new FileConf_(0));
+//    this->spath = dir.append(filename->data);
+//    this->tpath = boost::filesystem::path(spath.string() + ".xdm");
+//    this->cpath = boost::filesystem::path(spath.string() + ".xcm");
+//    this->fc->read(this->cpath.c_str());
+//    this->fs = new std::fstream();
+//    this->fs->open(tpath.c_str(), std::fstream::out | std::fstream::binary);
+//    if (!this->fs->is_open()) {
+//        throw Fail("File_ open file(%s) fail", tpath.c_str());
+//    }
+//    if (this->fs->tellg() < 1) {
+//        fs->seekp(this->fc->size - 1);
+//        fs->write("\0", 1);
+//    }
+//}
 
 File_::~File_() { close(); }
 
@@ -702,13 +748,13 @@ bool File_::valid(HashType type) {
     auto cfc = FileConf(new FileConf_(0));
     cfc->readhash(tpath.c_str(), type);
     if (HASH_IS(type, EMD4)) {
-        return cfc->fd->emd4->cmp(fc->fd->emd4);
+        return cfc->emd4->cmp(fc->emd4);
     }
     if (HASH_IS(type, MD5)) {
-        return cfc->fd->md5->cmp(fc->fd->md5);
+        return cfc->md5->cmp(fc->md5);
     }
     if (HASH_IS(type, SHA1)) {
-        return cfc->fd->sha1->cmp(fc->fd->sha1);
+        return cfc->sha1->cmp(fc->sha1);
     }
     return false;
 }
@@ -739,40 +785,42 @@ FileManager_::FileManager_(const char *emulex, const char *fdb) {
     fs->init(fdb);
 }
 
-File FileManager_::findOpenedF(Hash &hash) { return opened.at(hash); }
+File FileManager_::findOpenedF(const FUUID &uuid) { return opened.at(uuid); }
 
-File FileManager_::open(boost::filesystem::path dir, FData &file) {
-    auto f = File(new File_(dir, file));
-    if (f->fc->fd->sha1.get()) {
-        opened[f->fc->fd->sha1] = f;
+File FileManager_::open(const FUUID &uuid) {
+    if (opened.find(uuid) == opened.end()) {
+        auto f = File(new File_(uuid));
+        opened[uuid] = f;
+        return f;
+    } else {
+        return opened[uuid];
     }
-    if (f->fc->fd->md5.get()) {
-        opened[f->fc->fd->md5] = f;
-    }
-    if (f->fc->fd->emd4.get()) {
-        opened[f->fc->fd->emd4] = f;
-    }
-    return f;
 }
 
-File FileManager_::open(boost::filesystem::path dir, Data &filename) {
-    auto f = File(new File_(dir, filename));
-    if (f->fc->fd->sha1.get()) {
-        opened[f->fc->fd->sha1] = f;
-    }
-    if (f->fc->fd->md5.get()) {
-        opened[f->fc->fd->md5] = f;
-    }
-    if (f->fc->fd->emd4.get()) {
-        opened[f->fc->fd->emd4] = f;
-    }
-    return f;
-}
+// File FileManager_::open(boost::filesystem::path dir, Data &filename) {
+//    auto spath=dir.append(filename->data);
+//    if(sopened.find(spath)!=sopened.end()){
+//        return sopened[spath];
+//    }
+//    auto f = File(new File_(dir, filename));
+//    if (f->fc->sha1.get()) {
+//        opened[f->fc->sha1] = f;
+//    }
+//    if (f->fc->md5.get()) {
+//        opened[f->fc->md5] = f;
+//    }
+//    if (f->fc->emd4.get()) {
+//        opened[f->fc->emd4] = f;
+//    }
+//    return f;
+//}
 
-void FileManager_::done(Hash &hash) {
-    auto file = findOpenedF(hash);
-    file->done();
-    opened.erase(hash);
+void FileManager_::done(const FUUID &uuid) {
+    auto file = findOpenedF(uuid);
+    if (file.get()) {
+        file->done();
+        opened.erase(uuid);
+    }
 }
 //
 }

@@ -77,6 +77,8 @@
                 'encoding/encoding_test.hpp',
                 'ed2k/ed2k_test.hpp',
                 'protocol/ed2k_protocol_test.hpp',
+                'test/curl_util.h',
+                'test/curl_util.c',
                 'all_test.cpp',
             ],
             'dependencies': [
@@ -99,6 +101,7 @@
                             "-lboost_chrono-mt",
                             "-lboost_filesystem",
                             "-ljson-c",
+                            "-lcurl",
                             "-lemule_x",
                             "-lz",
                             "-lcrypto",

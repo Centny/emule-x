@@ -12,9 +12,13 @@
 #include <openssl/md4.h>
 #include <openssl/md5.h>
 #include <openssl/sha.h>
+#include <sqlite3.h>
 #include <stdio.h>
 #include <boost-utils/boost-utils.hpp>
+#include <boost-utils/log/log.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/foreach.hpp>
+#include <fstream>
 #include <iostream>
 #include <set>
 #include <sstream>
@@ -77,21 +81,33 @@ class SortedPart : public std::vector<uint64_t> {
     virtual std::vector<Part> split(uint64_t max = 512000);
 };
 
+class FUUID_ {
+   public:
+    Hash sha1;
+    Hash md5;
+    Hash emd4;
+    Data filename;
+    Data location;
+    uint64_t size = 0;
+
+   public:
+    virtual void cuuid(FUUID_ *v);
+};
+typedef boost::shared_ptr<FUUID_> FUUID;
+FUUID BuildFUUID(const Hash &hash, HashType type);
+
+struct FUUIDComparer {
+    bool operator()(const FUUID &first, const FUUID &second) const;
+};
 //
 #define FDSS_SHARING 100
 #define FDSS_FILE 200
 #define FDSD_VER 100
 std::map<int, const char *> FS_VER_SQL();
-class FData_ {
+class FData_ : public FUUID_ {
    public:
     uint64_t tid;
-    Hash sha1;
-    Hash md5;
-    Hash emd4;
-    Data filename;
-    uint64_t size = 0;
     Data format;
-    Data location;
     double duration;
     double bitrate;
     Data codec;
@@ -116,16 +132,13 @@ class FDataDb_ : public SQLite_ {
 };
 typedef boost::shared_ptr<FDataDb_> FDataDb;
 //
-#define FTSS_DONE 200
-#define FTSS_RUNNING 100
+const int FTSS_RUNNING = 1;
+const int FTSS_DONE = 1 << 1;
 #define EX_DB_VER 100
 std::map<int, const char *> EX_VER_SQL();
-class FTask_ {
+class FTask_ : public FUUID_ {
    public:
     uint64_t tid = 0;
-    Data filename;
-    Data location;
-    uint64_t size = 0;
     uint64_t done = 0;
     Data format;
     uint64_t used = 0;
@@ -139,10 +152,11 @@ class EmuleX_ : public SQLite_ {
     EmuleX_();
     virtual void init(const char *spath);
     virtual int countTask(int status = FTSS_RUNNING);
-    virtual std::vector<FTask> listTask(int status = FTSS_RUNNING, int skip = 0, int limit = 30);
+    virtual std::vector<FTask> listTask(int status = FTSS_RUNNING | FTSS_DONE, int skip = 0, int limit = 30);
     virtual uint64_t addTask(FTask &task);
-    virtual FTask addTask(boost::filesystem::path dir, FData &file);
+    virtual FTask addTask(const FUUID &uuid);
     virtual void removeTask(uint64_t tid);
+    virtual void updateTask(uint64_t tid, int status);
 };
 typedef boost::shared_ptr<EmuleX_> EmuleX;
 
@@ -163,9 +177,8 @@ typedef boost::shared_ptr<EmuleX_> EmuleX;
 #define write_ui16_(file_, val_) file_.write(endian::endian_buffer<endian::order::big, uint16_t, 16>(val_).data(), 2)
 #define write_ui8_(file_, val_) file_.write(endian::endian_buffer<endian::order::big, uint8_t, 8>(val_).data(), 1)
 
-class FileConf_ {
+class FileConf_ : public FUUID_ {
    public:
-    FData fd;
     //    Data filename;           // 0x10
     //    uint64_t size;           // 0x20
     //    Hash emd4;               // 0x30
@@ -199,8 +212,8 @@ class File_ {
     boost::filesystem::path cpath;
 
    public:
-    File_(boost::filesystem::path dir, FData &file);
-    File_(boost::filesystem::path dir, Data &filename);
+    File_(const FUUID &file);
+    //    File_(boost::filesystem::path dir, Data &filename);
     virtual ~File_();
     virtual bool exists(size_t av, size_t bv);
     virtual bool write(size_t offset, Data data);
@@ -221,14 +234,14 @@ class FileManager_ {
    public:
     EmuleX ts;
     FDataDb fs;
-    std::map<Hash, File, DataComparer> opened;
+    std::map<FUUID, File, FUUIDComparer> opened;
 
    public:
     FileManager_(const char *emulex, const char *fdb);
-    File findOpenedF(Hash &hash);
-    File open(boost::filesystem::path dir, FData &file);
-    File open(boost::filesystem::path dir, Data &filename);
-    virtual void done(Hash &hash);
+    File findOpenedF(const FUUID &uuid);
+    File open(const FUUID &uuid);
+    //    File open(boost::filesystem::path dir, Data &filename);
+    virtual void done(const FUUID &uuid);
 };
 typedef boost::shared_ptr<FileManager_> FileManager;
 }
