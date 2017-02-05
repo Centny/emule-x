@@ -31,6 +31,8 @@
                 'protocol/opcodes.h',
                 'ws/ws.cpp',
                 'ws/ws.hpp',
+                'ws/curl_util.h',
+                'ws/curl_util.c',
             ],
             'conditions': [
                 ['OS=="mac"', {
@@ -50,6 +52,7 @@
                             "-lboost_thread-mt",
                             "-lboost_chrono-mt",
                             "-lboost_utils",
+                            "-lcurl",
                             "-ljson-c",
                             "-lz",
                             "-lcrypto",
@@ -77,8 +80,6 @@
                 'encoding/encoding_test.hpp',
                 'ed2k/ed2k_test.hpp',
                 'protocol/ed2k_protocol_test.hpp',
-                'test/curl_util.h',
-                'test/curl_util.c',
                 'all_test.cpp',
             ],
             'dependencies': [
