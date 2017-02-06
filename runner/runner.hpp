@@ -112,6 +112,10 @@ class WsWrapper_ {
 };
 typedef boost::shared_ptr<WsWrapper_> WsWrapper;
 //
+const int SPT_SEARCH_SRV=1;
+const int SPT_PUBLISH_SRV=1<<1;
+const int SPT_SEARCH_RES=1<<2;
+//
 }
 }
 

@@ -494,6 +494,28 @@ BOOST_AUTO_TEST_CASE(Task) {
     printf("Task done...\n");
 }
 
+BOOST_AUTO_TEST_CASE(Srv) {
+    boost::filesystem::remove_all(boost::filesystem::path("srv"));
+    auto tdb = EmuleX(new EmuleX_);
+    tdb->init("srv.db");
+    FSrv srv = FSrv(new FSrv_);
+    srv->name = BuildData("abc", 3, true);
+    srv->addr = BuildData("127.0.0.1", 9, true);
+    srv->port = 10923;
+    srv->type = 100;
+    srv->description=BuildData("abc", 3, true);
+    srv->tryc = 0;
+    srv->last=0;
+    auto tid = tdb->addSrv(srv);
+    BOOST_CHECK_EQUAL(tid, 1);
+    BOOST_CHECK_EQUAL(tdb->countSrv(), 1);
+    auto ss = tdb->listSrv();
+    BOOST_CHECK_EQUAL(ss.size(), 1);
+    tdb->removeSrv(tid);
+    BOOST_CHECK_EQUAL(tdb->countSrv(), 0);
+    printf("Srv done...\n");
+}
+
 BOOST_AUTO_TEST_CASE(Data) {
     boost::filesystem::remove_all(boost::filesystem::path("data.db"));
     auto tdb = FDataDb(new FDataDb_);

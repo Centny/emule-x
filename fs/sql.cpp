@@ -233,8 +233,79 @@ create index ex_t_status on ex_task\
 (\
    status\
 );\
+/*==============================================================*/\
+/* Table: ex_server                                             */\
+/*==============================================================*/\
+create table ex_server\
+(\
+   tid                  integer primary key autoincrement,\
+   name                 varchar(256),\
+   addr                 varchar(256) not null,\
+   port                 int not null,\
+   type                 int not null,\
+   description          varchar(1024),\
+   tryc                 int,\
+   last                 int\
+);\
+\
+/*==============================================================*/\
+/* Index: ex_s_name                                             */\
+/*==============================================================*/\
+create index ex_s_name on ex_server\
+(\
+   name\
+);\
+\
+/*==============================================================*/\
+/* Index: ex_s_addr                                             */\
+/*==============================================================*/\
+create index ex_s_addr on ex_server\
+(\
+   addr\
+);\
+\
+/*==============================================================*/\
+/* Index: ex_s_port                                             */\
+/*==============================================================*/\
+create index ex_s_port on ex_server\
+(\
+   port\
+);\
+\
+/*==============================================================*/\
+/* Index: ex_s_type                                             */\
+/*==============================================================*/\
+create index ex_s_type on ex_server\
+(\
+   type\
+);\
+\
+/*==============================================================*/\
+/* Index: ex_s_description                                      */\
+/*==============================================================*/\
+create index ex_s_description on ex_server\
+(\
+   description\
+);\
+\
+/*==============================================================*/\
+/* Index: ex_s_tryc                                             */\
+/*==============================================================*/\
+create index ex_s_tryc on ex_server\
+(\
+   tryc\
+);\
+\
+/*==============================================================*/\
+/* Index: ex_s_last                                             */\
+/*==============================================================*/\
+create index ex_s_last on ex_server\
+(\
+   last\
+);\
 "
-std::map<int, const char*> FS_VER_SQL() {
+    std::map<int, const char*>
+    FS_VER_SQL() {
     std::map<int, const char*> ver;
     ver[0] = FS_SQL_V0;
     return ver;
