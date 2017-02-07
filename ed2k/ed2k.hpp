@@ -15,7 +15,7 @@
 namespace emulex {
 namespace ed2k {
 using namespace butils::netw;
-using namespace emulex::protocol;
+using namespace emulex::protocol::ped2k;
 class ED2K_;
 typedef boost::shared_ptr<ED2K_> ED2K;
 

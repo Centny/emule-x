@@ -22,7 +22,7 @@ namespace runner {
 using namespace emulex::fs;
 using namespace emulex::ws;
 using namespace butils::netw;
-using namespace emulex::protocol;
+using namespace emulex::protocol::ped2k;
 class Runner_;
 class REvn_ {
    public:
@@ -103,8 +103,13 @@ class WsWrapper_ {
 
    public:
     WsWrapper_(WS ws, Runner runner);
-    Reply addTask(Con, Args);
-    Reply listTask(Con, Args);
+    Reply addTask_h(Con, Args);
+    std::string addTask_m(HDL hdl, std::string &cmd, std::string &data);
+    std::string addTask(Hash &hash, std::string &type, std::string &dir, std::string &filename, size_t size);
+    //
+    Reply listTask_h(Con, Args);
+    std::string listTask_m(HDL hdl, std::string &cmd, std::string &data);
+    std::string listTask(int status = FTSS_RUNNING | FTSS_DONE, int skip = 0, int limit = 30);
 
    public:
     virtual void OnProcess(Runner_ &r, FTask task, int cons, float speed);
@@ -112,9 +117,9 @@ class WsWrapper_ {
 };
 typedef boost::shared_ptr<WsWrapper_> WsWrapper;
 //
-const int SPT_SEARCH_SRV=1;
-const int SPT_PUBLISH_SRV=1<<1;
-const int SPT_SEARCH_RES=1<<2;
+const int SPT_SEARCH_SRV = 1;
+const int SPT_PUBLISH_SRV = 1 << 1;
+const int SPT_SEARCH_RES = 1 << 2;
 //
 }
 }

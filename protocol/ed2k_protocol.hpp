@@ -22,12 +22,13 @@
 #include "../fs/fs.hpp"
 namespace emulex {
 namespace protocol {
+namespace ped2k {
 using namespace boost;
 using namespace butils::netw;
 using namespace emulex::fs;
 using namespace emulex::encoding;
 //
-#include "opcodes.h"
+#include "ed2k_opcodes.h"
 //    const uint8_t PROTOCOL_V0 = 0xE3;
 // const uint8_t PROTOCOL_V1 = 0xD4;
 //
@@ -389,6 +390,7 @@ class FileNotAnswer : public FileStatus {
 };
 
 //////////end protocol//////////
+}
 }
 }
 

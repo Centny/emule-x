@@ -146,12 +146,12 @@ class FTask_ : public FUUID_ {
 };
 typedef boost::shared_ptr<FTask_> FTask;
 
-const int FSVS_ED2K=1;
-const int FSVS_EMULEX=1<<1;
-const int FSVS_IRC=1<<2;
+const int FSVS_ED2K = 1;
+const int FSVS_EMULEX = 1 << 1;
+const int FSVS_IRC = 1 << 2;
 
 class FSrv_ {
-    public:
+   public:
     uint64_t tid = 0;
     Data name;
     Data addr;
@@ -175,10 +175,10 @@ class EmuleX_ : public SQLite_ {
     virtual void updateTask(uint64_t tid, int status);
     //
     virtual int countSrv();
-    virtual std::vector<FSrv> listSrv(Data addr=Data(),short port=0,int type=0);
+    virtual std::vector<FSrv> listSrv(Data addr = Data(), short port = 0, int type = 0);
     virtual uint64_t addSrv(FSrv &srv);
-    virtual FSrv addSrv(Data name,Data addr,short port,int type,Data description);
-    virtual FSrv findSrv(Data addr,short port);
+    virtual FSrv addSrv(Data name, Data addr, short port, int type, Data description);
+    virtual FSrv findSrv(Data addr, short port);
     virtual void removeSrv(uint64_t tid);
     virtual void updateSrv(uint64_t tid, int tryc, uint64_t last);
 };
@@ -269,8 +269,8 @@ class FileManager_ {
 };
 typedef boost::shared_ptr<FileManager_> FileManager;
 //
-    void SetShared(FileManager fmgr);
-    FileManager& Shared();
+void SetShared(FileManager fmgr);
+FileManager &Shared();
 }
 }
 

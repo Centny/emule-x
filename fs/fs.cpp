@@ -490,77 +490,75 @@ void EmuleX_::removeTask(uint64_t tid) { SQLite_::exec("delete from ex_task wher
 void EmuleX_::updateTask(uint64_t tid, int status) {
     SQLite_::exec("update ex_task set status=%d where tid=%lu", status, tid);
 }
-    
-    int EmuleX_::countSrv(){
-        return intv("select count(*) from ex_server");
+
+int EmuleX_::countSrv() { return intv("select count(*) from ex_server"); }
+
+std::vector<FSrv> EmuleX_::listSrv(Data addr, short port, int type) {
+    std::vector<FSrv> ss;
+    STMT stmt;
+    if (addr.get()) {
+        stmt = prepare(
+            "select tid,name,addr,port,type,description,tryc,last from ex_server where addr='%s' and port=%d and "
+            "type=type&%d",
+            addr->data, port, type);
+    } else {
+        stmt = prepare("select tid,name,addr,port,type,description,tryc,last from ex_server where type=type&%d", type);
     }
-    
-    std::vector<FSrv> EmuleX_::listSrv(Data addr,short port,int type){
-        std::vector<FSrv> ss;
-        STMT stmt;
-        if(addr.get()){
-            stmt = prepare("select tid,name,addr,port,type,description,tryc,last from ex_server where addr='%s' and port=%d and type=type&%d",addr->data,port,type);
-        }else{
-            stmt = prepare("select tid,name,addr,port,type,description,tryc,last from ex_server where type=type&%d", type);
-        }
-        while (stmt->step()) {
-            int idx = 0;
-            auto srv = FSrv(new FSrv_);
-            srv->tid = stmt->intv(idx++);
-            srv->name = stmt->stringv(idx++);
-            srv->addr = stmt->stringv(idx++);
-            srv->port = (short)stmt->intv(idx++);
-            srv->type = (int)stmt->intv(idx++);
-            srv->description = stmt->stringv(idx++);
-            srv->tryc = stmt->intv(idx++);
-            srv->last = stmt->intv(idx++);
-            ss.push_back(srv);
-        }
-        return ss;
+    while (stmt->step()) {
+        int idx = 0;
+        auto srv = FSrv(new FSrv_);
+        srv->tid = stmt->intv(idx++);
+        srv->name = stmt->stringv(idx++);
+        srv->addr = stmt->stringv(idx++);
+        srv->port = (short)stmt->intv(idx++);
+        srv->type = (int)stmt->intv(idx++);
+        srv->description = stmt->stringv(idx++);
+        srv->tryc = stmt->intv(idx++);
+        srv->last = stmt->intv(idx++);
+        ss.push_back(srv);
     }
-    
-    uint64_t EmuleX_::addSrv(FSrv &srv){
-        const char* name="";
-        if(srv->name.get()){
-            name=srv->name->data;
-        }
-        const char* desc;
-        if(srv->description.get()){
-            desc=srv->description->data;
-        }
-        SQLite_::exec(
-                      "insert into ex_server (tid,name,addr,port,type,description,tryc,last) values "
-                      "(null,'%s','%s',%lu,%lu,'%s',%lu,%d)",
-                      name, srv->addr->data, srv->port, srv->type, desc, srv->tryc, srv->last);
-        auto tid = SQLite_::intv("select last_insert_rowid()");
-        srv->tid = tid;
-        return tid;
-        
+    return ss;
+}
+
+uint64_t EmuleX_::addSrv(FSrv &srv) {
+    const char *name = "";
+    if (srv->name.get()) {
+        name = srv->name->data;
     }
-    FSrv EmuleX_::addSrv(Data name,Data addr,short port,int type,Data description){
-        FSrv srv=FSrv(new FSrv_);
-        srv->name=name;
-        srv->addr=addr;
-        srv->port=port;
-        srv->type=type;
-        srv->description=description;
-        addSrv(srv);
-        return srv;
+    const char *desc;
+    if (srv->description.get()) {
+        desc = srv->description->data;
     }
-    FSrv EmuleX_::findSrv(Data addr,short port){
-        auto ss=listSrv(addr,port,0);
-        if(ss.size()){
-            return ss[0];
-        }else{
-            return FSrv();
-        }
+    SQLite_::exec(
+        "insert into ex_server (tid,name,addr,port,type,description,tryc,last) values "
+        "(null,'%s','%s',%lu,%lu,'%s',%lu,%d)",
+        name, srv->addr->data, srv->port, srv->type, desc, srv->tryc, srv->last);
+    auto tid = SQLite_::intv("select last_insert_rowid()");
+    srv->tid = tid;
+    return tid;
+}
+FSrv EmuleX_::addSrv(Data name, Data addr, short port, int type, Data description) {
+    FSrv srv = FSrv(new FSrv_);
+    srv->name = name;
+    srv->addr = addr;
+    srv->port = port;
+    srv->type = type;
+    srv->description = description;
+    addSrv(srv);
+    return srv;
+}
+FSrv EmuleX_::findSrv(Data addr, short port) {
+    auto ss = listSrv(addr, port, 0);
+    if (ss.size()) {
+        return ss[0];
+    } else {
+        return FSrv();
     }
-    void EmuleX_::removeSrv(uint64_t tid){
-        SQLite_::exec("delete from ex_server where tid=%d", tid);
-    }
-    void EmuleX_::updateSrv(uint64_t tid, int tryc, uint64_t last){
-        SQLite_::exec("update ex_server set tryc=%d,last=%lu where tid=%lu", tryc, last, tid);
-    }
+}
+void EmuleX_::removeSrv(uint64_t tid) { SQLite_::exec("delete from ex_server where tid=%d", tid); }
+void EmuleX_::updateSrv(uint64_t tid, int tryc, uint64_t last) {
+    SQLite_::exec("update ex_server set tryc=%d,last=%lu where tid=%lu", tryc, last, tid);
+}
 
 FileConf_::FileConf_(size_t size) : parts(size) {}
 
@@ -893,13 +891,9 @@ void FileManager_::done(const FUUID &uuid) {
     }
 }
 //
-    FileManager fshared;
-    void SetShared(FileManager fmgr){
-        fshared=fmgr;
-    }
-    FileManager& Shared(){
-        return fshared;
-    }
+FileManager fshared;
+void SetShared(FileManager fmgr) { fshared = fmgr; }
+FileManager &Shared() { return fshared; }
 //
 }
 }

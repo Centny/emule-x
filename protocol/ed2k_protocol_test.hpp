@@ -9,7 +9,7 @@
 #include "ed2k_protocol.hpp"
 
 using namespace boost;
-using namespace emulex::protocol;
+using namespace emulex::protocol::ped2k;
 using namespace boost::endian;
 
 BOOST_AUTO_TEST_SUITE(ed2k_protocol)  // name of the test suite is stringtest

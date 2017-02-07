@@ -31,15 +31,30 @@ WS_::WS_(boost::asio::io_service& ios, short port, std::string docroot) : ios(io
     srv.start_accept();
 }
 
-void WS_::reg(std::string path, http_json_handler h) { hs[path] = h; }
+void WS_::regh(std::string path, http_json_handler h) { hs[path] = h; }
+
+void WS_::regm(std::string cmd, http_msg_handler h) { ms[cmd] = h; }
 
 void WS_::onmsg(websocketpp::connection_hdl hdl, message_ptr msg) {
     std::string mdata = msg->get_payload();
-    V_LOG_D("WS_ onmsg called with message %s", mdata.c_str());
     if (mdata == "stop-listening") {
+        V_LOG_I("WS_ stop with message %s", mdata.c_str());
         srv.stop_listening();
         return;
     }
+    size_t pos = mdata.find(":");
+    if (pos == std::string::npos) {
+        V_LOG_W("WS_ onmsg called with invalid message %s", mdata.c_str());
+        return;
+    }
+    std::string cmd = mdata.substr(0, pos);
+    std::string data = mdata.substr(pos + 1);
+    if (ms.find(cmd) == ms.end()) {
+        V_LOG_W("WS_ onmsg called fail with command not found by message %s", mdata.c_str());
+        return;
+    }
+    std::string res = ms[cmd](hdl, cmd, data);
+    srv.send(hdl, res, websocketpp::frame::opcode::text);
 }
 
 void WS_::onhttp(websocketpp::connection_hdl hdl) {

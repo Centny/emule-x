@@ -10,6 +10,7 @@
 #include <zlib.h>
 namespace emulex {
 namespace protocol {
+namespace ped2k {
 using namespace boost::endian::detail;
 
 ModH BuildMod() {
@@ -877,5 +878,6 @@ void FileStatus::parse(Data &data, uint8_t magic) {
 }
 
 //////////end encoding//////////
+}
 }
 }

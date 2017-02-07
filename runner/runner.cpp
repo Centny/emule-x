@@ -223,8 +223,10 @@ WsWrapper_::WsWrapper_(WS ws, Runner runner) {
     using websocketpp::lib::placeholders::_1;
     using websocketpp::lib::placeholders::_2;
     using websocketpp::lib::bind;
-    this->ws->reg("/api/addTask", bind(&WsWrapper_::addTask, this, _1, _2));
-    this->ws->reg("/api/listTask", bind(&WsWrapper_::listTask, this, _1, _2));
+    this->ws->regh("/api/addTask", bind(&WsWrapper_::addTask_h, this, _1, _2));
+    this->ws->regh("/api/listTask", bind(&WsWrapper_::listTask_h, this, _1, _2));
+    this->ws->regm("addTask", bind(&WsWrapper_::addTask_m, this, _1, _2, _3));
+    this->ws->regm("listTask", bind(&WsWrapper_::listTask_m, this, _1, _2, _3));
 }
 
 Reply WsWrapper_::mcode(int code, std::string msg) {
@@ -233,7 +235,7 @@ Reply WsWrapper_::mcode(int code, std::string msg) {
     return OkReply(ss.str());
 }
 
-Reply WsWrapper_::addTask(Con con, Args args) {
+Reply WsWrapper_::addTask_h(Con con, Args args) {
     try {
         if (args.find("hash") == args.end()) {
             return mcode(1, "hash argument is null or empty");
@@ -258,38 +260,83 @@ Reply WsWrapper_::addTask(Con con, Args args) {
         if (args.find("size") != args.end()) {
             size = boost::lexical_cast<size_t>(args["size"].c_str());
         }
-        HashType rtype;
-        if (type == "emd4") {
-            if (size < 1) {
-                return mcode(1, "the size argument must not be zero when hash is emd4");
-            }
-            rtype = EMD4;
-        } else if (type == "md5") {
-            rtype = MD5;
-        } else if (type == "sha1") {
-            rtype = SHA1;
-        } else {
-            return mcode(1, "the type must be in emd4/md5/sha1");
-        }
-        auto fnc = BuildData(filename.c_str(), filename.size());
-        auto dirc = BuildData(dir.c_str(), dir.size());
-        auto task = runner->addTask(dirc, rtype, hash, fnc, size);
-        auto jroot = json_object_new_object();
-        json_object_object_add(jroot, "tid", json_object_new_int64(task->tid));
-        json_object_object_add(jroot, "code", json_object_new_int(0));
-        auto ss = std::string(json_object_to_json_string(jroot));
-        json_object_put(jroot);
+        auto ss = addTask(hash, type, dir, filename, size);
         return OkReply(ss);
     } catch (const std::exception& e) {
-        V_LOG_E("addTask fail with %s by query->%s", e.what(), con->get_resource().c_str());
+        V_LOG_E("addTaskH fail with %s by query->%s", e.what(), con->get_resource().c_str());
         return mcode(-1, e.what());
     } catch (...) {
-        V_LOG_E("addTask fail with unknow error by query->%s", con->get_resource().c_str());
+        V_LOG_E("addTaskH fail with unknow error by query->%s", con->get_resource().c_str());
         return mcode(-1, "addTask fail with unknow error by query->" + con->get_resource());
     }
 }
 
-Reply WsWrapper_::listTask(Con con, Args args) {
+std::string WsWrapper_::addTask_m(HDL hdl, std::string& cmd, std::string& data) {
+    struct json_object* obj;
+    try {
+        Hash hash;
+        std::string type;
+        std::string dir;
+        std::string filename;
+        size_t size;
+        obj = json_tokener_parse(data.c_str());
+        json_object_object_foreach(obj, key, val) {
+            if (strcmp(key, "hash") == 0 && json_object_is_type(val, json_type_string)) {
+                hash = FromHex(json_object_get_string(val));
+            } else if (strcmp(key, "type") == 0 && json_object_is_type(val, json_type_string)) {
+                type = std::string(json_object_get_string(val));
+            } else if (strcmp(key, "dir") == 0 && json_object_is_type(val, json_type_string)) {
+                dir = std::string(json_object_get_string(val));
+            } else if (strcmp(key, "filename") == 0 && json_object_is_type(val, json_type_string)) {
+                filename = std::string(json_object_get_string(val));
+            } else if (strcmp(key, "size") == 0 && json_object_is_type(val, json_type_int)) {
+                size = json_object_get_int(val);
+            }
+        }
+        if (hash.get() == 0 || type.size() == 0 || dir.size() == 0 || filename.size() == 0) {
+            json_object_put(obj);
+            return std::string("the hash/type/dir/filename must not be empty");
+        }
+        auto ss = addTask(hash, type, dir, filename, size);
+        json_object_put(obj);
+        return ss;
+    } catch (const std::exception& e) {
+        json_object_put(obj);
+        V_LOG_E("addTaskM fail with %s", e.what());
+        return std::string(e.what());
+    } catch (...) {
+        json_object_put(obj);
+        V_LOG_E("addTaskM fail with %s", "unknow error");
+        return std::string("unknow error");
+    }
+}
+
+std::string WsWrapper_::addTask(Hash& hash, std::string& type, std::string& dir, std::string& filename, size_t size) {
+    HashType rtype;
+    if (type == "emd4") {
+        if (size < 1) {
+            throw Fail("%s", "the size argument must not be zero when hash is emd4");
+        }
+        rtype = EMD4;
+    } else if (type == "md5") {
+        rtype = MD5;
+    } else if (type == "sha1") {
+        rtype = SHA1;
+    } else {
+        throw Fail("the type must be in emd4/md5/sha1, but %s", type.c_str());
+    }
+    auto fnc = BuildData(filename.c_str(), filename.size());
+    auto dirc = BuildData(dir.c_str(), dir.size());
+    auto task = runner->addTask(dirc, rtype, hash, fnc, size);
+    auto jroot = json_object_new_object();
+    json_object_object_add(jroot, "tid", json_object_new_int64(task->tid));
+    json_object_object_add(jroot, "code", json_object_new_int(0));
+    auto ss = std::string(json_object_to_json_string(jroot));
+    json_object_put(jroot);
+    return ss;
+}
+
+Reply WsWrapper_::listTask_h(Con con, Args args) {
     try {
         int status = FTSS_RUNNING | FTSS_DONE;
         if (args.find("status") != args.end()) {
@@ -303,27 +350,7 @@ Reply WsWrapper_::listTask(Con con, Args args) {
         if (args.find("limit") != args.end()) {
             limit = boost::lexical_cast<int>(args["limit"].c_str());
         }
-        auto tasks = runner->fmgr->ts->listTask(status, skip, limit);
-        auto jroot = json_object_new_object();
-        auto jtasks = json_object_new_array();
-        BOOST_FOREACH (const FTask& task, tasks) {
-            auto jtask = json_object_new_object();
-            json_object_object_add(jtask, "tid", json_object_new_int64(task->tid));
-            json_object_object_add(jtask, "filename", json_object_new_string(task->filename->data));
-            json_object_object_add(jtask, "location", json_object_new_string(task->location->data));
-            json_object_object_add(jtask, "size", json_object_new_int64(task->size));
-            json_object_object_add(jtask, "done", json_object_new_int64(task->done));
-            json_object_object_add(jtask, "format", json_object_new_string(task->format->data));
-            json_object_object_add(jtask, "used", json_object_new_int64(task->used));
-            json_object_object_add(jtask, "status", json_object_new_int64(task->status));
-            json_object_array_add(jtasks, jtask);
-            // json_object_put(jtask);
-        }
-        json_object_object_add(jroot, "tasks", jtasks);
-        // json_object_put(jtasks);
-        json_object_object_add(jroot, "code", json_object_new_int(0));
-        auto ss = std::string(json_object_to_json_string(jroot));
-        json_object_put(jroot);
+        auto ss = listTask(status, skip, limit);
         return OkReply(ss);
     } catch (const std::exception& e) {
         V_LOG_E("listTask fail with %s by query->%s", e.what(), con->get_resource().c_str());
@@ -332,6 +359,61 @@ Reply WsWrapper_::listTask(Con con, Args args) {
         V_LOG_E("listTask fail with unknow error by query->%s", con->get_resource().c_str());
         return mcode(-1, "addTask fail with unknow error by query->" + con->get_resource());
     }
+}
+
+std::string WsWrapper_::listTask_m(HDL hdl, std::string& cmd, std::string& data) {
+    struct json_object* obj;
+    try {
+        int status = FTSS_RUNNING | FTSS_DONE;
+        int skip = 0;
+        int limit = 30;
+        auto obj = json_tokener_parse(data.c_str());
+        json_object_object_foreach(obj, key, val) {
+            if (strcmp(key, "status") == 0 && json_object_is_type(val, json_type_int)) {
+                status = json_object_get_int(val);
+            } else if (strcmp(key, "skip") == 0 && json_object_is_type(val, json_type_int)) {
+                skip = json_object_get_int(val);
+            } else if (strcmp(key, "limit") == 0 && json_object_is_type(val, json_type_int)) {
+                limit = json_object_get_int(val);
+            }
+        }
+        auto ss = listTask(status, skip, limit);
+        json_object_put(obj);
+        return ss;
+    } catch (const std::exception& e) {
+        json_object_put(obj);
+        V_LOG_E("addTaskM fail with %s", e.what());
+        return std::string(e.what());
+    } catch (...) {
+        json_object_put(obj);
+        V_LOG_E("addTaskM fail with %s", "unknow error");
+        return std::string("unknow error");
+    }
+}
+
+std::string WsWrapper_::listTask(int status, int skip, int limit) {
+    auto tasks = runner->fmgr->ts->listTask(status, skip, limit);
+    auto jroot = json_object_new_object();
+    auto jtasks = json_object_new_array();
+    BOOST_FOREACH (const FTask& task, tasks) {
+        auto jtask = json_object_new_object();
+        json_object_object_add(jtask, "tid", json_object_new_int64(task->tid));
+        json_object_object_add(jtask, "filename", json_object_new_string(task->filename->data));
+        json_object_object_add(jtask, "location", json_object_new_string(task->location->data));
+        json_object_object_add(jtask, "size", json_object_new_int64(task->size));
+        json_object_object_add(jtask, "done", json_object_new_int64(task->done));
+        json_object_object_add(jtask, "format", json_object_new_string(task->format->data));
+        json_object_object_add(jtask, "used", json_object_new_int64(task->used));
+        json_object_object_add(jtask, "status", json_object_new_int64(task->status));
+        json_object_array_add(jtasks, jtask);
+        // json_object_put(jtask);
+    }
+    json_object_object_add(jroot, "tasks", jtasks);
+    // json_object_put(jtasks);
+    json_object_object_add(jroot, "code", json_object_new_int(0));
+    auto ss = std::string(json_object_to_json_string(jroot));
+    json_object_put(jroot);
+    return ss;
 }
 
 void WsWrapper_::OnProcess(Runner_& r, FTask task, int cons, float speed) {}

@@ -304,8 +304,7 @@ create index ex_s_last on ex_server\
    last\
 );\
 "
-    std::map<int, const char*>
-    FS_VER_SQL() {
+std::map<int, const char*> FS_VER_SQL() {
     std::map<int, const char*> ver;
     ver[0] = FS_SQL_V0;
     return ver;

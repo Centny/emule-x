@@ -96,14 +96,14 @@ BOOST_AUTO_TEST_CASE(TestRunner) {
     while (true) {
         auto taskres = curl_get("http://127.0.0.1:9825/api/listTask", 0, 0);
         auto taskj = json_tokener_parse(taskres->rdata);
-//        json_object_object_get_ex(
-        struct json_object *tasks_;
-        json_object_object_get_ex(taskj, "tasks",&tasks_);
+        //        json_object_object_get_ex(
+        struct json_object* tasks_;
+        json_object_object_get_ex(taskj, "tasks", &tasks_);
         auto tasks = json_object_get_array(tasks_);
         BOOST_CHECK_EQUAL(tasks->length, 1);
         auto task = (struct json_object*)tasks->array[0];
-        struct json_object *status;
-        json_object_object_get_ex(task, "status",&status);
+        struct json_object* status;
+        json_object_object_get_ex(task, "status", &status);
         if (json_object_get_int(status) == FTSS_DONE) {
             json_object_put(taskj);
             break;

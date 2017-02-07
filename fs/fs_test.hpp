@@ -503,9 +503,9 @@ BOOST_AUTO_TEST_CASE(Srv) {
     srv->addr = BuildData("127.0.0.1", 9, true);
     srv->port = 10923;
     srv->type = 100;
-    srv->description=BuildData("abc", 3, true);
+    srv->description = BuildData("abc", 3, true);
     srv->tryc = 0;
-    srv->last=0;
+    srv->last = 0;
     auto tid = tdb->addSrv(srv);
     BOOST_CHECK_EQUAL(tid, 1);
     BOOST_CHECK_EQUAL(tdb->countSrv(), 1);

@@ -29,6 +29,8 @@
                 'protocol/ed2k_protocol.cpp',
                 'protocol/ed2k_protocol.hpp',
                 'protocol/opcodes.h',
+                'kadx/kadx.cpp',
+                'kadx/kadx.hpp',
                 'ws/ws.cpp',
                 'ws/ws.hpp',
                 'ws/curl_util.h',
