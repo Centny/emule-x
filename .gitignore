@@ -10,3 +10,5 @@ eMule0.50a-Sources
 
 *.log
 /*.pdb
+
+test/file

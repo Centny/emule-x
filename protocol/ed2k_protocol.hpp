@@ -180,11 +180,6 @@ class FileList {
  */
 Data ListServer();
 /*
- the ed2k server Address
- */
-typedef std::pair<uint32_t, uint16_t> Address;
-std::string addr_cs(Address &addr);
-/*
  the ed2k server
  */
 class ServerList {

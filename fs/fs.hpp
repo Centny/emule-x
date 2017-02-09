@@ -50,10 +50,14 @@ const HashType ALL_HASH = EMD4 | MD5 | SHA1;
  */
 class Hash : public Data {
    public:
+    HashType type;
+
+   public:
     Hash();
     Hash(size_t len);
     Hash(const char *buf, size_t len);
     virtual ~Hash();
+    virtual void set(HashType type);
     virtual void set(size_t len);
     virtual void set(const char *buf, size_t len);
     virtual bool operator==(const Hash &h) const;
@@ -83,12 +87,12 @@ class SortedPart : public std::vector<uint64_t> {
 
 class FUUID_ {
    public:
-    Hash sha1;
-    Hash md5;
-    Hash emd4;
-    Data filename;
+    Hash sha1;      // 0x01
+    Hash md5;       // 0x02
+    Hash emd4;      // 0x03
+    Data filename;  // 0x04
     Data location;
-    uint64_t size = 0;
+    uint64_t size = 0;  // 0x05
 
    public:
     virtual void cuuid(FUUID_ *v);
@@ -102,19 +106,26 @@ struct FUUIDComparer {
 //
 #define FDSS_SHARING 100
 #define FDSS_FILE 200
+#define FDSS_DOWNLOADING 300
 #define FDSD_VER 100
 std::map<int, const char *> FS_VER_SQL();
 class FData_ : public FUUID_ {
    public:
     uint64_t tid;
-    Data format;
-    double duration;
-    double bitrate;
-    Data codec;
-    Data authors;
-    Data description;
-    Data album;
+    Data format;       // 0x06
+    double duration;   // 0x07
+    double bitrate;    // 0x08
+    Data codec;        // 0x09
+    Data authors;      // 0x0A
+    Data description;  // 0x0B
+    Data album;        // 0x0C
+    Data source;       // 0x0D
     int status = 0;
+    // magic 0xEE
+   public:
+    void encode(Encoding &enc);
+    void parse(Decoding &dec);
+    uint16_t dsize();
 };
 typedef boost::shared_ptr<FData_> FData;
 FData BuildFData(const char *spath);

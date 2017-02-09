@@ -561,6 +561,35 @@ BOOST_AUTO_TEST_CASE(TestFUUID) {
     printf("fuuid done...\n");
 }
 
+BOOST_AUTO_TEST_CASE(TestFData) {
+    typedef boost::filesystem::recursive_directory_iterator rd_iterator;
+    rd_iterator beg("/Users/vty/git/emule-x/test/file");
+    rd_iterator end;
+    std::vector<FData> fs;
+    emulex::encoding::Encoding enc;
+    while (beg != end) {
+        if (boost::filesystem::is_directory(*beg)) {
+            continue;
+        }
+        std::string path = beg->path().string();
+        printf("doing->%s\n", path.c_str());
+        auto fdata = BuildFData(path.c_str());
+        fs.push_back(fdata);
+        fdata->encode(enc);
+        beg++;
+    }
+    printf("%lu\n", enc.size());
+    auto def = enc.deflate();
+    printf("%lu\n", def->len);
+    //    auto def2=enc.lzmadef();
+    //    std::fstream f("/tmp/xx.dat",std::fstream::out);
+    //    auto data=enc.encode();
+    //    f.write(data->data,data->len);
+    //    f.close();
+    printf("%lu\n", def->len);
+    printf("fdata done...\n");
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 #endif /* fs_test_h */

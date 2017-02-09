@@ -349,12 +349,7 @@ Data ListServer() {
     char opcode = (char)OP_SERVERSTATUS;
     return BuildData(&opcode, 1);
 }
-std::string addr_cs(Address &addr) {
-    std::stringstream ss;
-    ss << boost::asio::ip::address_v4(addr.first).to_string();
-    ss << ":" << addr.second;
-    return ss.str();
-}
+
 ServerList::ServerList() {}
 
 Data ServerList::encode() {

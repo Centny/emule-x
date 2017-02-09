@@ -23,6 +23,22 @@ Hash::~Hash() {
 
 void Hash::set(size_t len) { this->reset(new Data_(len, false)); }
 
+void Hash::set(HashType type) {
+    switch (type) {
+        case SHA1:
+            set(SHA_DIGEST_LENGTH);
+            break;
+        case MD5:
+            set(MD5_DIGEST_LENGTH);
+            break;
+        case EMD4:
+            set(MD4_DIGEST_LENGTH);
+            break;
+        default:
+            throw Fail("FoundSource parse fail with invalid hash type, emd4/md5/sha1 expected, but %x", type);
+    }
+    this->type = type;
+}
 void Hash::set(const char *buf, size_t len) { this->reset(new Data_(buf, len, false)); }
 
 bool Hash::operator==(const Hash &h) const {
@@ -261,6 +277,132 @@ bool FUUIDComparer::operator()(const FUUID &first, const FUUID &second) const {
         return DataComparer()(first->filename, second->filename);
     }
     return false;
+}
+
+void FData_::encode(Encoding &enc) {
+    if (sha1.get()) {
+        enc.put((uint8_t)0x01);
+        enc.put(sha1);
+    }
+    if (md5.get()) {
+        enc.put((uint8_t)0x02);
+        enc.put(md5);
+    }
+    if (emd4.get()) {
+        enc.put((uint8_t)0x03);
+        enc.put(emd4);
+    }
+    if (filename.get()) {
+        enc.put((uint8_t)0x04);
+        enc.put((uint16_t)filename->len);
+        enc.put(filename);
+    }
+    if (size) {
+        enc.put((uint8_t)0x05);
+        enc.put(size);
+    }
+    if (format.get()) {
+        enc.put((uint8_t)0x06);
+        enc.put((uint16_t)format->len);
+        enc.put(format);
+    }
+    if (description.get()) {
+        enc.put((uint8_t)0x0B);
+        enc.put((uint16_t)description->len);
+        enc.put(description);
+    }
+    if (source.get()) {
+        enc.put((uint8_t)0x0D);
+        enc.put((uint16_t)source->len);
+        enc.put(source);
+    }
+    enc.put((uint8_t)0xEE);
+}
+
+void FData_::parse(Decoding &dec) {
+    uint8_t magic;
+    magic = dec.get<uint8_t, 1>();
+    if (magic != 0xEE) {
+        throw Fail("FData parse fail with invalid magic, %x expected, but %x", 0xEE, magic);
+    }
+    while (true) {
+        magic = dec.get<uint8_t, 1>();
+        switch (magic) {
+            case 0x01: {
+                sha1.set(SHA_DIGEST_LENGTH);
+                dec.get(sha1->data, sha1->len);
+                break;
+            }
+            case 0x02: {
+                md5.set(MD5_DIGEST_LENGTH);
+                dec.get(md5->data, md5->len);
+                break;
+            }
+            case 0x03: {
+                emd4.set(MD4_DIGEST_LENGTH);
+                dec.get(emd4->data, emd4->len);
+                break;
+            }
+            case 0x04: {
+                filename.reset(new Data_(dec.get<uint16_t, 2>(), true));
+                dec.get(filename->data, filename->len);
+                break;
+            }
+            case 0x05: {
+                size = dec.get<uint64_t, 8>();
+                break;
+            }
+            case 0x06: {
+                format.reset(new Data_(dec.get<uint16_t, 2>(), true));
+                dec.get(format->data, format->len);
+                break;
+            }
+            case 0x0B: {
+                description.reset(new Data_(dec.get<uint16_t, 2>(), true));
+                dec.get(description->data, description->len);
+                break;
+            }
+            case 0x0D: {
+                source.reset(new Data_(dec.get<uint16_t, 2>(), true));
+                dec.get(source->data, source->len);
+                break;
+            }
+            case 0xEE: {
+                return;
+            }
+            default: { throw Fail("FData parse fail with invalid item magic %x ", magic); }
+        }
+    }
+}
+
+uint16_t FData_::dsize() {
+    uint16_t size = 0;
+    if (sha1.get()) {
+        size += SHA_DIGEST_LENGTH + 1;
+    }
+    if (md5.get()) {
+        size += MD5_DIGEST_LENGTH + 1;
+    }
+    if (emd4.get()) {
+        size += MD4_DIGEST_LENGTH + 1;
+    }
+    if (filename.get()) {
+        size += filename->len + 3;
+    }
+    if (size) {
+        size += 9;
+    }
+    if (format.get()) {
+        size += format->len + 3;
+    }
+    if (description.get()) {
+        size += description->len + 3;
+    }
+    if (source.get()) {
+        size += source->len + 3;
+    }
+    size += 1;
+    return size;
 }
 
 FData BuildFData(const char *spath) {

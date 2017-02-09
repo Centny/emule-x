@@ -59,6 +59,8 @@ class Encoding {
     Encoding &putv(const char *name, uint64_t val);
     Encoding &putv(uint8_t name, uint64_t val);
     virtual void print(char *buf = 0);
+    Data deflate();
+    //    Data lzmadef();
 
    protected:
     boost::asio::streambuf buf_;
@@ -98,7 +100,8 @@ class Decoding {
     Data data;
     size_t offset;
 };
-
+typedef std::pair<uint32_t, uint16_t> Address;
+std::string addr_cs(Address &addr);
 //////////end encoding//////////
 }
 }

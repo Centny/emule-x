@@ -26,12 +26,9 @@ std::string ConTypeS(ConType c) {
     }
 }
 
-KADX_::KADX_(asio::io_service &ios, Hash &hash, Data &name, Evn h) : ios(ios), hash(16) {
-    //    mod = BuildMod();
-    this->hash = hash;
-    this->name = name;
-    hash->data[5] = 14;
-    hash->data[15] = 111;
+KADX_::KADX_(asio::io_service &ios, pkadx::Login uuid, Evn h) : ios(ios) {
+    mod = pkadx::BuildMod();
+    this->uuid = uuid;
     this->H = h;
 }
 
@@ -87,10 +84,9 @@ UDP KADX_::conto(ConType tag, const char *addr, uint16_t port, bool reused, Data
     m->tag = (uint32_t)tag;
     m->reused = reused;
     m->write(addr, port, data->data, data->len, err);
-    usrv[m->Id()] = m;
-    auto con = m->con();
-    ucs[con->Id()] = con;
-    return con;
+    // usrv[m->Id()] = m;
+    ucs[m->Id()] = m;
+    return m;
 }
 
 // void KADX_::OnSrvLogined() {
@@ -146,9 +142,140 @@ int KADX_::OnCmd(Cmd c) {
     if (showlog > 1) {
         c->data->print();
     }
-    switch ((uint8_t)c->charAt(0)) {}
-    c->data->print(cbuf);
-    V_LOG_W("ED2K receive unknow message:%s", cbuf);
+    switch ((uint8_t)c->charAt(0)) {
+        case OPX_LOGIN: {
+            pkadx::Login l = pkadx::Login(new pkadx::Login_);
+            l->parse(c->data);
+            logined[c->Id()] = l;
+            c->writer->write(uuid->encode(), ecode);
+            if (l->addr && l->port) {
+                s2s[c->Id()] = c->writer;
+                c->writer->tag = S2S;
+            } else {
+                s2c[c->Id()] = c->writer;
+                c->writer->tag = S2C;
+            }
+            if (l->flags && holing.find(l->flags) != holing.end()) {
+                rfilestatus(c->Id(), holing[l->flags], ecode);
+            }
+            break;
+        }
+        case OPX_LOGIN_BACK: {
+            pkadx::Login l = pkadx::Login(new pkadx::Login_);
+            l->parse(c->data);
+            logined[c->Id()] = l;
+            c2s[c->Id()] = c->writer;
+            c->writer->tag = C2S;
+            break;
+        }
+        case OPX_SEARCH: {
+            pkadx::Search s = pkadx::Search(new pkadx::Search_);
+            s->parse(c->data);
+            pkadx::SearchBack sb = pkadx::SearchBack(new pkadx::SearchBack_(s->uid, s->tid));
+            sb->fs = H->OnSearch(*this, s);
+            if (sb->fs.size()) {
+                auto ds = sb->encode();
+                BOOST_FOREACH (const Data &d, ds) {
+                    c->writer->write(d, ecode);
+                    if (ecode) {
+                        return;
+                    }
+                }
+            }
+            if (s2c.size()) {
+                stask[s] = c->Id();
+                BOOST_FOREACH (const TypeWriter &w, s2c) {
+                    w.second->write(c->data, ecode);
+                    if (ecode) {
+                        return;
+                    }
+                }
+            }
+            //            V_LOG_W("KADX receive login message from:%s", cbuf);
+            break;
+        }
+        case OPX_SEARCH_BACK: {
+            pkadx::SearchBack sb = pkadx::SearchBack(new pkadx::SearchBack_());
+            sb->parse(c->data);
+            if (sb->uid->cmp(uuid->hash) == 0) {
+                H->OnSearchBack(*this, sb);
+                return;
+            }
+            if (stask.find(sb) == stask.end()) {
+                return;
+            }
+            write(stask[sb], sb->encode()[0], ecode);
+            break;
+        }
+        case OPX_SSRC: {
+            pkadx::SearchSource ss = pkadx::SearchSource(new pkadx::SearchSource_);
+            ss->parse(c->data);
+            if (H->OnSearchSource(*this, ss)) {
+                pkadx::FoundSource fs = pkadx::FoundSource(new pkadx::FoundSource_);
+                fs->uid = ss->uid;
+                fs->tid = ss->tid;
+                fs->hash = ss->hash;
+                fs->srvs.push_back(pkadx::KadxAddr(new pkadx::KadxAddr_(uuid->addr, uuid->port, 0)));
+                c->writer->write(fs->encode(), ecode);
+                if (ecode) {
+                    return;
+                }
+            }
+            if (s2c.size()) {
+                stask[ss] = c->Id();
+                BOOST_FOREACH (const TypeWriter &w, s2c) {
+                    w.second->write(c->data, ecode);
+                    if (ecode) {
+                        return;
+                    }
+                }
+            }
+            break;
+        }
+        case OPX_FSRC: {
+            pkadx::FoundSource fs = pkadx::FoundSource(new pkadx::FoundSource_());
+            fs->parse(c->data);
+            if (fs->uid->cmp(uuid->hash) == 0) {
+                H->OnFoundSource(*this, fs);
+                return;
+            }
+            if (stask.find(fs) == stask.end()) {
+                return;
+            }
+            write(stask[fs], fs->encode(), ecode);
+            break;
+        }
+        case OPX_FILE_STATUS:{
+            pkadx::FileStatus fs=pkadx::FileStatus(new pkadx::FileStatus_);
+            fs->parse(c->data);
+            pkadx::FilePart fp=H->OnFileStatus(*this, fs);
+            write(c->Id(), fs->encode(), ecode);
+            break;
+        }
+        case OPX_FILE_STATUS_BACK:{
+            pkadx::FilePart fp=pkadx::FilePart(new pkadx::FilePart_);
+            fp->parse(c->data);
+            H->OnFileStatusBack(*this, fp);
+            break;
+        }
+        case OPX_FILE_PART:{
+            pkadx::FilePart fp=pkadx::FilePart(new pkadx::FilePart_);
+            fp->parse(c->data);
+            H->OnFilePart(*this, fp);
+            break;
+        }
+        case OPX_FILE_PROC:{
+            pkadx::FileProc fp=pkadx::FileProc(new pkadx::FileProc_);
+            fp->parse(c->data);
+            H->OnFileProc(*this, fp);
+            break;
+        }
+        default: {
+            c->data->print(cbuf);
+            V_LOG_W("ED2K receive unknow message:%s", cbuf);
+            break;
+        }
+    }
     return 0;
 }
 
@@ -166,6 +293,79 @@ size_t KADX_::write(uint64_t cid, Data data, boost::system::error_code &ec) {
 }
 
 size_t KADX_::send(uint64_t cid, Encoding &enc, boost::system::error_code &ec) { return write(cid, enc.encode(), ec); }
+
+void KADX_::login(uint64_t cid, boost::system::error_code &ec) {
+    unsigned short port = 0;
+    write(cid, uuid->encode(), ec);
+    if (ec) {
+        V_LOG_W("KADX send login by name(%s),port(%d) fail with code(%d)", uuid->name->data, uuid->port, ec.value());
+    } else {
+        V_LOG_D("KADX send login by name(%s),port(%d) success", uuid->name->data, uuid->port);
+    }
+}
+
+void KADX_::search(uint64_t cid, Data &key, boost::system::error_code &ec) {
+    auto s = pkadx::Search(new pkadx::Search_);
+    s->uid = uuid->hash;
+    s->tid = taskc++;
+    s->key = key;
+    write(cid, s->encode(), ec);
+    if (ec) {
+        V_LOG_W("KADX send search by key(%s) fail with code(%d)", key->data, ec.value());
+    } else {
+        V_LOG_D("KADX send search by key(%s) success", key->data);
+    }
+}
+
+void KADX_::ssrc(uint64_t cid, Hash &hash, uint64_t size, boost::system::error_code &ec) {
+    auto s = pkadx::SearchSource(new pkadx::SearchSource_);
+    s->uid = uuid->hash;
+    s->tid = taskc++;
+    s->hash = hash;
+    s->size = size;
+    write(cid, s->encode(), ec);
+    if (ec) {
+        V_LOG_W("KADX send search source by hash(%s) fail with code(%d)", hash.tostring().c_str(), ec.value());
+    } else {
+        V_LOG_D("KADX send search source by hash(%s) success", hash.tostring().c_str());
+    }
+}
+
+void KADX_::hole(uint64_t cid, Hash &hash, uint64_t tcid, boost::system::error_code &ec) {
+    auto h = pkadx::Hole(new pkadx::Hole_);
+    h->cid = tcid;
+    h->flags = taskc++;
+    holing[h->flags] = cid;
+    write(cid, h->encode(), ec);
+    if (ec) {
+        V_LOG_W("KADX send hole by cid(%llu) fail with code(%d)", tcid, ec.value());
+    } else {
+        V_LOG_D("KADX send hole by cid(%llu) source by hash(%s) success", tcid);
+    }
+}
+    
+void KADX_::rfilestatus(uint64_t cid, Hash &hash,  boost::system::error_code &ec){
+    auto s=pkadx::FileStatus(new pkadx::FileStatus_);
+    s->hash=hash;
+    write(cid, s->encode(), ec);
+    if (ec) {
+        V_LOG_W("KADX send rfilestatus by hash(%s) fail with code(%d)", hash.tostring().c_str(), ec.value());
+    } else {
+        V_LOG_D("KADX send rfilestatus by hash(%s) source by hash(%s) success", hash.tostring().c_str());
+    }
+}
+    
+void KADX_::rfilepart(uint64_t cid, Hash &hash, SortedPart& parts, boost::system::error_code &ec){
+    auto fp=pkadx::FilePart(new pkadx::FilePart_);
+    fp->hash=hash;
+    fp->parts=parts;
+    write(cid, fp->encode(), ec);
+    if (ec) {
+        V_LOG_W("KADX send rfilestatus by hash(%s) fail with code(%d)", hash.tostring().c_str(), ec.value());
+    } else {
+        V_LOG_D("KADX send rfilestatus by hash(%s) source by hash(%s) success", hash.tostring().c_str());
+    }
+}
 
 void KADX_::close(uint64_t cid) {
     if (tcs.find(cid) == tcs.end()) {

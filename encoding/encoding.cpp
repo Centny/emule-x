@@ -165,6 +165,18 @@ void Encoding::print(char *buf) {
     }
 }
 
+Data Encoding::deflate() {
+    auto data = encode();
+    data->deflate();
+    return data;
+}
+
+//    Data Encoding::lzmadef(){
+//        auto data=encode();
+//        data->lzmadef();
+//        return data;
+//    }
+
 Decoding::Decoding(Data &data) {
     this->data = data;
     this->offset = 0;
@@ -208,6 +220,12 @@ void Decoding::inflate() {
     if (data->inflate(offset)) {
         throw Fail("Decoding inflate fail with offset(%ld)", offset);
     }
+}
+std::string addr_cs(Address &addr) {
+    std::stringstream ss;
+    ss << boost::asio::ip::address_v4(addr.first).to_string();
+    ss << ":" << addr.second;
+    return ss.str();
 }
 }
 }
