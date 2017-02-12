@@ -42,7 +42,7 @@ Connector KADX_::connect(ConType tag, uint32_t addr, uint16_t port, boost::syste
     }
     con->connect(addr, port, err);
     if (err) {
-        return;
+        return con;
     }
     tcs[con->Id()] = con;
     //    esrv[con->Id()].addr = Address(addr, port);
@@ -63,7 +63,7 @@ Acceptor KADX_::listen(ConType tag, const char *addr, uint16_t port, bool reused
     acp->reused = reused;
     acp->start(err);
     if (err) {
-        return;
+        return acp;
     }
     tsrv[acp->Id()] = acp;
 }
@@ -74,7 +74,7 @@ Monitor KADX_::monitor(ConType tag, const char *addr, uint16_t port, bool reused
     m->reused = reused;
     m->start(err);
     if (err) {
-        return;
+        return m;
     }
     usrv[m->Id()] = m;
 }
@@ -107,7 +107,7 @@ bool KADX_::OnConn(TCP s, const boost::system::error_code &ec) {
     if (ec) {
         V_LOG_D("KADX connect fail with code(%d)", ec.value());
         this->remove(s);
-        return;
+        return false;
     }
     V_LOG_D("KADX tcp(%s) connected to by %s", ConTypeS((ConType)s->tag).c_str(), s->address().c_str());
     //    switch (s->tag) {
@@ -178,7 +178,7 @@ int KADX_::OnCmd(Cmd c) {
                 BOOST_FOREACH (const Data &d, ds) {
                     c->writer->write(d, ecode);
                     if (ecode) {
-                        return;
+                        return 1;
                     }
                 }
             }
@@ -187,7 +187,7 @@ int KADX_::OnCmd(Cmd c) {
                 BOOST_FOREACH (const TypeWriter &w, s2c) {
                     w.second->write(c->data, ecode);
                     if (ecode) {
-                        return;
+                        return 1;
                     }
                 }
             }
@@ -199,10 +199,10 @@ int KADX_::OnCmd(Cmd c) {
             sb->parse(c->data);
             if (sb->uid->cmp(uuid->hash) == 0) {
                 H->OnSearchBack(*this, sb);
-                return;
+                return 0;
             }
             if (stask.find(sb) == stask.end()) {
-                return;
+                return 0;
             }
             write(stask[sb], sb->encode()[0], ecode);
             break;
@@ -218,7 +218,7 @@ int KADX_::OnCmd(Cmd c) {
                 fs->srvs.push_back(pkadx::KadxAddr(new pkadx::KadxAddr_(uuid->addr, uuid->port, 0)));
                 c->writer->write(fs->encode(), ecode);
                 if (ecode) {
-                    return;
+                    return 1;
                 }
             }
             if (s2c.size()) {
@@ -226,7 +226,7 @@ int KADX_::OnCmd(Cmd c) {
                 BOOST_FOREACH (const TypeWriter &w, s2c) {
                     w.second->write(c->data, ecode);
                     if (ecode) {
-                        return;
+                        return 1;
                     }
                 }
             }
@@ -237,35 +237,35 @@ int KADX_::OnCmd(Cmd c) {
             fs->parse(c->data);
             if (fs->uid->cmp(uuid->hash) == 0) {
                 H->OnFoundSource(*this, fs);
-                return;
+                return 0;
             }
             if (stask.find(fs) == stask.end()) {
-                return;
+                return 0;
             }
             write(stask[fs], fs->encode(), ecode);
             break;
         }
-        case OPX_FILE_STATUS:{
-            pkadx::FileStatus fs=pkadx::FileStatus(new pkadx::FileStatus_);
+        case OPX_FILE_STATUS: {
+            pkadx::FileStatus fs = pkadx::FileStatus(new pkadx::FileStatus_);
             fs->parse(c->data);
-            pkadx::FilePart fp=H->OnFileStatus(*this, fs);
+            pkadx::FilePart fp = H->OnFileStatus(*this, fs);
             write(c->Id(), fs->encode(), ecode);
             break;
         }
-        case OPX_FILE_STATUS_BACK:{
-            pkadx::FilePart fp=pkadx::FilePart(new pkadx::FilePart_);
+        case OPX_FILE_STATUS_BACK: {
+            pkadx::FilePart fp = pkadx::FilePart(new pkadx::FilePart_);
             fp->parse(c->data);
             H->OnFileStatusBack(*this, fp);
             break;
         }
-        case OPX_FILE_PART:{
-            pkadx::FilePart fp=pkadx::FilePart(new pkadx::FilePart_);
+        case OPX_FILE_PART: {
+            pkadx::FilePart fp = pkadx::FilePart(new pkadx::FilePart_);
             fp->parse(c->data);
             H->OnFilePart(*this, fp);
             break;
         }
-        case OPX_FILE_PROC:{
-            pkadx::FileProc fp=pkadx::FileProc(new pkadx::FileProc_);
+        case OPX_FILE_PROC: {
+            pkadx::FileProc fp = pkadx::FileProc(new pkadx::FileProc_);
             fp->parse(c->data);
             H->OnFileProc(*this, fp);
             break;
@@ -343,10 +343,10 @@ void KADX_::hole(uint64_t cid, Hash &hash, uint64_t tcid, boost::system::error_c
         V_LOG_D("KADX send hole by cid(%llu) source by hash(%s) success", tcid);
     }
 }
-    
-void KADX_::rfilestatus(uint64_t cid, Hash &hash,  boost::system::error_code &ec){
-    auto s=pkadx::FileStatus(new pkadx::FileStatus_);
-    s->hash=hash;
+
+void KADX_::rfilestatus(uint64_t cid, Hash &hash, boost::system::error_code &ec) {
+    auto s = pkadx::FileStatus(new pkadx::FileStatus_);
+    s->hash = hash;
     write(cid, s->encode(), ec);
     if (ec) {
         V_LOG_W("KADX send rfilestatus by hash(%s) fail with code(%d)", hash.tostring().c_str(), ec.value());
@@ -354,11 +354,11 @@ void KADX_::rfilestatus(uint64_t cid, Hash &hash,  boost::system::error_code &ec
         V_LOG_D("KADX send rfilestatus by hash(%s) source by hash(%s) success", hash.tostring().c_str());
     }
 }
-    
-void KADX_::rfilepart(uint64_t cid, Hash &hash, SortedPart& parts, boost::system::error_code &ec){
-    auto fp=pkadx::FilePart(new pkadx::FilePart_);
-    fp->hash=hash;
-    fp->parts=parts;
+
+void KADX_::rfilepart(uint64_t cid, Hash &hash, SortedPart &parts, boost::system::error_code &ec) {
+    auto fp = pkadx::FilePart(new pkadx::FilePart_);
+    fp->hash = hash;
+    fp->parts = parts;
     write(cid, fp->encode(), ec);
     if (ec) {
         V_LOG_W("KADX send rfilestatus by hash(%s) fail with code(%d)", hash.tostring().c_str(), ec.value());

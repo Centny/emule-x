@@ -223,10 +223,10 @@ WsWrapper_::WsWrapper_(WS ws, Runner runner) {
     using websocketpp::lib::placeholders::_1;
     using websocketpp::lib::placeholders::_2;
     using websocketpp::lib::bind;
-    this->ws->regh("/api/addTask", bind(&WsWrapper_::addTask_h, this, _1, _2));
-    this->ws->regh("/api/listTask", bind(&WsWrapper_::listTask_h, this, _1, _2));
-    this->ws->regm("addTask", bind(&WsWrapper_::addTask_m, this, _1, _2, _3));
-    this->ws->regm("listTask", bind(&WsWrapper_::listTask_m, this, _1, _2, _3));
+    this->ws->regh("/api/addTask", bind(&WsWrapper_::addTask_h, *this, _1, _2));
+    this->ws->regh("/api/listTask", bind(&WsWrapper_::listTask_h, *this, _1, _2));
+    this->ws->regm("addTask", bind(&WsWrapper_::addTask_m, *this, _1, _2, _3));
+    this->ws->regm("listTask", bind(&WsWrapper_::listTask_m, *this, _1, _2, _3));
 }
 
 Reply WsWrapper_::mcode(int code, std::string msg) {

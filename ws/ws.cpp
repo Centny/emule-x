@@ -15,6 +15,8 @@
 namespace emulex {
 namespace ws {
 
+//using barg = websocketpp::lib::placeholders;
+
 WS_::WS_(boost::asio::io_service& ios, short port, std::string docroot) : ios(ios), docroot(docroot) {
     // Set logging settings
     srv.set_access_channels(websocketpp::log::alevel::all);
@@ -22,8 +24,8 @@ WS_::WS_(boost::asio::io_service& ios, short port, std::string docroot) : ios(io
     // Initialize Asio
     srv.init_asio(&ios);
     // Register our message handler
-    srv.set_http_handler(bind(&WS_::onhttp, this, ::_1));
-    srv.set_message_handler(bind(&WS_::onmsg, this, ::_1, ::_2));
+    srv.set_http_handler(websocketpp::lib::bind(&WS_::onhttp, this, websocketpp::lib::placeholders::_1));
+    srv.set_message_handler(websocketpp::lib::bind(&WS_::onmsg, this, websocketpp::lib::placeholders::_1, websocketpp::lib::placeholders::_2));
     // Listen on port
     srv.listen(port);
     srv.get_io_service();

@@ -362,10 +362,8 @@ void FileStatus_::parse(Data &data, uint8_t magic) {
     hash.set((HashType)dec.get<uint8_t, 1>());
     dec.get(hash->data, hash->len);
 }
-    
-    FilePart_::FilePart_():parts(0){
-        
-    }
+
+FilePart_::FilePart_() : parts(0) {}
 
 Data FilePart_::encode(uint8_t magic) {
     auto enc = new Encoding();
@@ -388,7 +386,7 @@ void FilePart_::parse(Data &data, uint8_t magic) {
     }
     hash.set((HashType)dec.get<uint8_t, 1>());
     dec.get(hash->data, hash->len);
-    parts.total=dec.get<uint64_t, 8>();
+    parts.total = dec.get<uint64_t, 8>();
     uint8_t sc = dec.get<uint8_t, 1>();
     for (uint8_t i = 0; i < sc; i++) {
         parts.push_back(dec.get<uint64_t, 8>());

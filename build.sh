@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-clang-format -style=file -i -sort-includes **/*.cpp **/*.hpp #**/*.hpp **/*.cc **/*.c
+#clang-format -style=file -i -sort-includes **/*.cpp **/*.hpp #**/*.hpp **/*.cc **/*.c
 # export DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH:.
 if [ "$1" = "test" -o "$1" = "testc" ];then
     if [ "$1" = "testc" ];then

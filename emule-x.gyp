@@ -1,4 +1,22 @@
 {
+    "variables": {
+        "other_cflags%": "",
+        "other_lflags%": "",
+        "deps%": [
+            '-lboost_system',
+            "-lboost_iostreams",
+            "-lboost_filesystem",
+            "-lboost_thread-mt",
+            "-lboost_chrono-mt",
+            "-lboost_utils",
+            "-lcurl",
+            "-ljson-c",
+            "-lz",
+            "-lcrypto",
+            "-lsqlite3",
+            "-lboost_regex",
+        ],
+    },
     'targets': [
         {
             "variables": {
@@ -28,6 +46,8 @@
                 'encoding/encoding.hpp',
                 'protocol/ed2k_protocol.cpp',
                 'protocol/ed2k_protocol.hpp',
+                'protocol/kadx_protocol.cpp',
+                'protocol/kadx_protocol.hpp',
                 'protocol/opcodes.h',
                 'kadx/kadx.cpp',
                 'kadx/kadx.hpp',
@@ -36,34 +56,41 @@
                 'ws/curl_util.h',
                 'ws/curl_util.c',
             ],
+            "ldflags":[
+                "<(deps)",
+            ],
+            'cflags': [
+                '-std=c++11',
+            ],
             'conditions': [
                 ['OS=="mac"', {
                     'xcode_settings': {
-                        'LD_DYLIB_INSTALL_NAME': "@rpath/$(EXECUTABLE_PATH)",
                         'MACOSX_DEPLOYMENT_TARGET': '10.11',
+                        'LD_DYLIB_INSTALL_NAME': "@rpath/$(EXECUTABLE_PATH)",
                         'OTHER_CFLAGS': [
                             "<(other_cflags)",
                         ],
                         'OTHER_LDFLAGS': [
                             "-stdlib=libc++",
                             "-L/usr/local/lib",
+                            "-L.",
                             "-L../boost-utils/build/Default",
-                            '-lboost_system',
-                            "-lboost_iostreams",
-                            "-lboost_filesystem",
-                            "-lboost_thread-mt",
-                            "-lboost_chrono-mt",
-                            "-lboost_utils",
-                            "-lcurl",
-                            "-ljson-c",
-                            "-lz",
-                            "-lcrypto",
-                            "-lsqlite3",
-                            "-lboost_regex",
                             "-Wl,-rpath,.",
-                            "<(other_cflags)",
+                            "<(other_lflags)",
+                            "<(deps)",
                         ],
                     },
+                }],
+                ['OS=="linux"', {
+                    'ldflags': [
+                        '-pthread',
+                        "-L.",
+                        "-L/usr/local/lib",
+                        "-Wl,-rpath,.",
+                    ],
+                    'cflags': [
+                        '-fPIC',
+                    ],
                 }],
             ],
         },
@@ -87,33 +114,41 @@
             'dependencies': [
                 'emule_x',
             ],
+            "ldflags":[
+                "<(deps)",
+            ],
+            'cflags': [
+                '-std=c++11',
+            ],
             'conditions': [
                 ['OS=="mac"', {
                     'xcode_settings': {
                         'MACOSX_DEPLOYMENT_TARGET': '10.11',
+                        'LD_DYLIB_INSTALL_NAME': "@rpath/$(EXECUTABLE_PATH)",
+                        'OTHER_CFLAGS': [
+                            "<(other_cflags)",
+                        ],
                         'OTHER_LDFLAGS': [
                             "-stdlib=libc++",
-                            "-L.",
                             "-L/usr/local/lib",
+                            "-L.",
                             "-L../boost-utils/build/Default",
-                            '-lboost_system',
-                            "-lboost_iostreams",
-                            "-lboost_unit_test_framework",
-                            "-lboost_utils",
-                            "-lboost_thread-mt",
-                            "-lboost_chrono-mt",
-                            "-lboost_filesystem",
-                            "-ljson-c",
-                            "-lcurl",
-                            "-lemule_x",
-                            "-lz",
-                            "-lcrypto",
-                            "-lsqlite3",
-                            "-lboost_regex",
-                            "-Wl,-rpath,$(PROJECT_DIR)/../boost-utils/build/Default",
-                            "-Wl,-rpath,."
+                            "-Wl,-rpath,.",
+                            "<(other_lflags)",
+                            "<(deps)",
                         ],
                     },
+                }],
+                ['OS=="linux"', {
+                    'ldflags': [
+                        '-pthread',
+                        "-L.",
+                        "-L/usr/local/lib",
+                        "-Wl,-rpath,.",
+                    ],
+                    'cflags': [
+                        '-fPIC',
+                    ],
                 }],
             ],
         },
@@ -136,32 +171,41 @@
                 'ed2k/console_test.cpp',
                 'test/console_test.cpp',
             ],
+            "ldflags":[
+                "<(deps)",
+            ],
+            'cflags': [
+                '-std=c++11',
+            ],
             'conditions': [
                 ['OS=="mac"', {
                     'xcode_settings': {
                         'MACOSX_DEPLOYMENT_TARGET': '10.11',
+                        'LD_DYLIB_INSTALL_NAME': "@rpath/$(EXECUTABLE_PATH)",
+                        'OTHER_CFLAGS': [
+                            "<(other_cflags)",
+                        ],
                         'OTHER_LDFLAGS': [
                             "-stdlib=libc++",
-                            "-L.",
                             "-L/usr/local/lib",
+                            "-L.",
                             "-L../boost-utils/build/Default",
-                            '-lboost_system',
-                            "-lboost_iostreams",
-                            "-lboost_unit_test_framework",
-                            "-lboost_utils",
-                            "-lboost_filesystem",
-                            "-lboost_thread-mt",
-                            "-lboost_chrono-mt",
-                            "-ljson-c",
-                            "-lemule_x",
-                            "-lz",
-                            "-lcrypto",
-                            "-lsqlite3",
-                            "-lboost_regex",
-                            "-Wl,-rpath,$(PROJECT_DIR)/../boost-utils/build/Default",
-                            "-Wl,-rpath,."
+                            "-Wl,-rpath,.",
+                            "<(other_lflags)",
+                            "<(deps)",
                         ],
                     },
+                }],
+                ['OS=="linux"', {
+                    'ldflags': [
+                        '-pthread',
+                        "-L.",
+                        "-L/usr/local/lib",
+                        "-Wl,-rpath,.",
+                    ],
+                    'cflags': [
+                        '-fPIC',
+                    ],
                 }],
             ],
         },

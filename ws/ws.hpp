@@ -18,10 +18,7 @@
 namespace emulex {
 namespace ws {
 
-using websocketpp::lib::placeholders::_1;
-using websocketpp::lib::placeholders::_2;
-using websocketpp::lib::placeholders::_3;
-using websocketpp::lib::bind;
+
 typedef websocketpp::server<websocketpp::config::asio> server;
 typedef server::message_ptr message_ptr;
 typedef std::map<std::string, std::string> Args;

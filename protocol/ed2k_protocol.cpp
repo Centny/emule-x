@@ -492,7 +492,6 @@ void SearchArgs::parse(Data &data, uint8_t magic) {
         dec.inflate();
     }
     search = data->sub(1, data->len - 1);
-    return 0;
 }
 
 GetSource::GetSource() : hash(16) {}

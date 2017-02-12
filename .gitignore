@@ -12,3 +12,11 @@ eMule0.50a-Sources
 /*.pdb
 
 test/file
+
+*.mk
+
+*.Makefile
+
+Makefile
+
+out

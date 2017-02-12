@@ -44,7 +44,7 @@ Connector ED2K_::connect(con_t tag, uint32_t addr, uint16_t port, boost::system:
     }
     con->connect(addr, port, err);
     if (err) {
-        return;
+        return con;
     }
     tcs[con->Id()] = con;
     esrv[con->Id()].addr = Address(addr, port);
@@ -77,7 +77,7 @@ bool ED2K_::OnConn(TCP s, const boost::system::error_code &ec) {
     if (ec) {
         V_LOG_D("ED2K connect fail with code(%d)", ec.value());
         this->remove(s);
-        return;
+        return false;
     }
     V_LOG_D("ED2K tcp(%s) connected to by %s", con_t_cs((con_t)s->tag).c_str(), s->address().c_str());
     switch (s->tag) {

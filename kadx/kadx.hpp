@@ -97,8 +97,8 @@ class KADX_ : public CmdH_, public ConH_, public boost::enable_shared_from_this<
     virtual void search(uint64_t cid, Data &key, boost::system::error_code &ec);
     virtual void ssrc(uint64_t cid, Hash &hash, uint64_t size, boost::system::error_code &ec);
     virtual void hole(uint64_t cid, Hash &hash, uint64_t tcid, boost::system::error_code &ec);
-    virtual void rfilestatus(uint64_t cid, Hash &hash,  boost::system::error_code &ec);
-    virtual void rfilepart(uint64_t cid, Hash &hash, SortedPart& parts, boost::system::error_code &ec);
+    virtual void rfilestatus(uint64_t cid, Hash &hash, boost::system::error_code &ec);
+    virtual void rfilepart(uint64_t cid, Hash &hash, SortedPart &parts, boost::system::error_code &ec);
     //    virtual void listServer(uint64_t cid, boost::system::error_code &ec);
     //    virtual void search(uint64_t cid, const char *key, boost::system::error_code &ec);
     //    virtual void listSource(uint64_t cid, Hash &hash, uint64_t size, boost::system::error_code &ec);
